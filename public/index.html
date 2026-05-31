@@ -225,12 +225,61 @@
     }
     .kd-refresh-btn:hover { background: rgba(0,0,0,0.04); }
 
+    /* ── Overview: loop cards ── */
+    .ov-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .ov-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .ov-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ov-color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .ov-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .ov-metrics {
+      padding: 4px 0 8px;
+    }
+    .ov-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 7px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .ov-row:last-child { border-bottom: none; }
+    .ov-row-label { color: var(--muted); }
+    .ov-row-value { font-weight: 600; color: var(--text); }
+    .ov-row-value.green { color: #3b6d11; }
+    .ov-row-value.red   { color: #a32d2d; }
+    .ov-row-value.muted { color: var(--muted); font-weight: 400; }
+
     /* ── Mobile ── */
     @media (max-width: 640px) {
       .content { margin-left: 0; }
       .sidebar { transform: translateX(-100%); }
       main { padding: 0 16px; margin: 20px 0; }
       .topbar { padding: 0 16px; }
+      .ov-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -248,6 +297,7 @@
   <div class="logo">Marketing</div>
   <nav>
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
+    <a class="nav-link" onclick="switchTab('channel-performance', this)">Channel performance</a>
   </nav>
 </aside>
 
@@ -265,14 +315,62 @@
 <script>
   let perfCache = null;
 
-  const TAB_TITLES = { overview: "Overview" };
+  const TAB_TITLES = {
+    "overview":             "Overview",
+    "channel-performance":  "Channel performance",
+  };
 
   function switchTab(tab, el) {
     document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
     if (el) el.classList.add("active");
     const titleEl = document.getElementById("topbar-title");
     if (titleEl) titleEl.textContent = TAB_TITLES[tab] || tab;
-    if (tab === "overview") renderOverview();
+    if (tab === "overview")            renderOverviewPage();
+    if (tab === "channel-performance") renderChannelPerformance();
+  }
+
+  // ── Overview: four loops ──────────────────────────────────────────────────
+  const LOOPS = [
+    { id: "il",  label: "Impact Loop",     color: "#c8e000" },
+    { id: "vc",  label: "Impact Loop VC",  color: "#b9a6d4" },
+    { id: "el",  label: "Energy Loop",     color: "#3dc95e" },
+    { id: "ind", label: "Industrial Loop", color: "#a8d96a" },
+  ];
+
+  const METRICS = [
+    { key: "mrrWeek",    label: "MRR/week" },
+    { key: "mrrMonth",   label: "MRR/month" },
+    { key: "newSubs",    label: "New subscribers" },
+    { key: "churnMax",   label: "Churn max" },
+    { key: "totalCac",   label: "Total CAC" },
+    { key: "ltv",        label: "LTV" },
+    { key: "ltvCac",     label: "LTV:CAC" },
+    { key: "payback",    label: "Payback time" },
+  ];
+
+  function renderOverviewPage() {
+    const el = document.getElementById("main-content");
+    const cards = LOOPS.map(loop => `
+      <div class="ov-card">
+        <div class="ov-card-header">
+          <div class="ov-color-dot" style="background:${loop.color}"></div>
+          <div class="ov-card-title">${loop.label}</div>
+        </div>
+        <div class="ov-metrics">
+          ${METRICS.map(m => `
+            <div class="ov-row">
+              <span class="ov-row-label">${m.label}</span>
+              <span class="ov-row-value muted" id="ov-${loop.id}-${m.key}">–</span>
+            </div>`).join("")}
+        </div>
+      </div>`).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Overview</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Key metrics across all four loops</div>
+        <div class="ov-grid">${cards}</div>
+      </div>`;
   }
 
   function escHtml(s) {
@@ -283,8 +381,8 @@
       .replace(/"/g, "&quot;");
   }
 
-  // ── Overview (Channel performance) ────────────────────────────────────────
-  function renderOverview() {
+  // ── Channel performance ───────────────────────────────────────────────────
+  function renderChannelPerformance() {
     document.getElementById("main-content").innerHTML = `
       <div style="max-width:680px;margin:0 auto;padding:24px 0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -644,7 +742,7 @@
   }
 
   // Boot
-  renderOverview();
+  renderOverviewPage();
 </script>
 </body>
 </html>
