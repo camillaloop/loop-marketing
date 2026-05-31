@@ -267,11 +267,16 @@
       font-size: 13px;
     }
     .ov-row:last-child { border-bottom: none; }
-    .ov-row-label { color: var(--muted); }
-    .ov-row-value { font-weight: 600; color: var(--text); }
-    .ov-row-value.green { color: #3b6d11; }
-    .ov-row-value.red   { color: #a32d2d; }
-    .ov-row-value.muted { color: var(--muted); font-weight: 400; }
+    .ov-row-label { color: var(--muted); flex-shrink: 0; }
+    .ov-row-right { display: flex; align-items: center; gap: 6px; }
+    .ov-row-actual { font-weight: 600; color: var(--text); }
+    .ov-row-actual.green { color: #3b6d11; }
+    .ov-row-actual.red   { color: #a32d2d; }
+    .ov-row-actual.muted { color: var(--muted); font-weight: 400; }
+    .ov-row-goal-txt { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .ov-check { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .ov-check.ok  { color: #3b6d11; }
+    .ov-check.bad { color: #a32d2d; }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
@@ -338,14 +343,14 @@
   ];
 
   const METRICS = [
-    { key: "mrrWeek",    label: "MRR/week" },
-    { key: "mrrMonth",   label: "MRR/month" },
-    { key: "newSubs",    label: "New subscribers" },
-    { key: "churnMax",   label: "Churn max" },
-    { key: "totalCac",   label: "Total CAC" },
-    { key: "ltv",        label: "LTV" },
-    { key: "ltvCac",     label: "LTV:CAC" },
-    { key: "payback",    label: "Payback time" },
+    { key: "mrrGrowthWeek", label: "MRR growth/week" },
+    { key: "mrrMonth",      label: "MRR/month" },
+    { key: "newSubs",       label: "New subscribers" },
+    { key: "churnMax",      label: "Churn" },
+    { key: "totalCac",      label: "Total CAC" },
+    { key: "ltv",           label: "LTV" },
+    { key: "ltvCac",        label: "LTV:CAC" },
+    { key: "payback",       label: "Payback time" },
   ];
 
   function renderOverviewPage() {
@@ -361,7 +366,7 @@
           ${METRICS.map(m => `
             <div class="ov-row">
               <span class="ov-row-label">${m.label}</span>
-              <span class="ov-row-value muted" id="ov-${loop.id}-${m.key}">–</span>
+              <span class="ov-row-right" id="ov-${loop.id}-${m.key}"><span class="ov-row-actual muted">–</span></span>
             </div>`).join("")}
         </div>
       </div>`).join("");
@@ -417,52 +422,72 @@
 
   function renderVcMetrics({ mrr, cac }) {
     if (!mrr && !cac) return;
-    const ACQ_COST = 28230; // kr/month
+    const ACQ_COST = 28230;
     const EUR_SEK  = mrr?.eurSek || 11;
 
-    const s = cac?.stripe || {};
-    const currentMrr  = mrr?.currentMrr  || 0;
-    const mondayMrr   = mrr?.mondayMrr   || 0;
-    const newSubs     = s.lastMonthNewSubs   || 0;
-    const churnRate   = s.lastMonthChurnRate || 0; // %
+    const s           = cac?.stripe || {};
+    const currentMrr  = mrr?.currentMrr      || 0;
+    const mondayMrr   = mrr?.mondayMrr       || 0;
+    const newSubsWeek = mrr?.newSubsThisWeek ?? null; // from mrr API
+    const churnRate   = s.lastMonthChurnRate || 0;
     const avgMonthSek = Math.round((s.avgMonthlyEur || 0) * EUR_SEK);
+    const newSubs30   = s.lastMonthNewSubs   || 0; // for CAC calc (30-day)
 
-    const mrrWeekNet = Math.round(currentMrr - mondayMrr);
-    const cacVal     = newSubs > 0 ? Math.round(ACQ_COST / newSubs) : 0;
-    const ltv        = churnRate > 0 && avgMonthSek > 0
-                         ? Math.round(avgMonthSek / (churnRate / 100)) : 0;
-    const ltvCac     = cacVal > 0 && ltv > 0
-                         ? Math.round((ltv / cacVal) * 10) / 10 : 0;
-    const payback    = cacVal > 0 && avgMonthSek > 0
-                         ? Math.round(cacVal / avgMonthSek) : 0;
+    const mrrGrowth = Math.round(currentMrr - mondayMrr);
+    const cacVal    = newSubs30 > 0 ? Math.round(ACQ_COST / newSubs30) : 0;
+    const ltv       = churnRate > 0 && avgMonthSek > 0
+                        ? Math.round(avgMonthSek / (churnRate / 100)) : 0;
+    const ltvCac    = cacVal > 0 && ltv > 0
+                        ? Math.round((ltv / cacVal) * 10) / 10 : 0;
+    const payback   = cacVal > 0 && avgMonthSek > 0
+                        ? Math.round(cacVal / avgMonthSek) : 0;
 
-    const fmtKr  = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
-    const fmtPct = n => n > 0 ? n + "%" : "–";
+    // Build innerHTML for a metric cell
+    // goalText = null → no goal; isOk = null → no indicator
+    function cell(valueHtml, valueCls, goalText, isOk) {
+      const valSpan = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      if (goalText == null) return valSpan;
+      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const check    = isOk == null ? "" :
+        `<span class="ov-check ${isOk ? "ok" : "bad"}">${isOk ? "✓" : "✗"}</span>`;
+      return valSpan + goalSpan + check;
+    }
 
-    function set(key, text, cls) {
+    function set(key, innerHTML) {
       const el = document.getElementById(`ov-vc-${key}`);
       if (!el) return;
-      el.textContent = text;
-      el.className = "ov-row-value " + (cls || "");
+      el.innerHTML = innerHTML;
     }
 
-    // MRR cells — only update if mrr data is available
+    const fmtKr = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
+
     if (mrr) {
-      const weekSign = mrrWeekNet >= 0 ? "+" : "−";
-      const weekCls  = mrrWeekNet >= 0 ? "green" : "red";
-      set("mrrWeek",  weekSign + Math.abs(mrrWeekNet).toLocaleString("sv-SE") + " kr", weekCls);
-      set("mrrMonth", fmtKr(currentMrr));
+      const sign    = mrrGrowth >= 0 ? "+" : "−";
+      const growCls = mrrGrowth >= 0 ? "green" : "red";
+      const growStr = sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr";
+      set("mrrGrowthWeek", cell(growStr, growCls, "2 000 kr", mrrGrowth >= 2000));
+      set("mrrMonth",      cell(fmtKr(currentMrr), "", null, null));
+
+      if (newSubsWeek !== null) {
+        set("newSubs", cell(String(newSubsWeek), newSubsWeek >= 10 ? "green" : "red",
+                            "10 / week", newSubsWeek >= 10));
+      }
     }
 
-    // CAC/subscriber cells — only update if cac data is available
     if (cac) {
-      set("newSubs",  newSubs > 0 ? String(newSubs) : "–");
-      set("churnMax", fmtPct(churnRate));
-      set("totalCac", fmtKr(cacVal));
-      set("ltv",      fmtKr(ltv));
-      set("ltvCac",   ltvCac > 0 ? ltvCac + "×" : "–",
-                      ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : ltvCac > 0 ? "red" : "muted");
-      set("payback",  payback > 0 ? payback + " months" : "–");
+      const churnOk = churnRate > 0 && churnRate <= 10;
+      set("churnMax", cell(churnRate > 0 ? churnRate + "%" : "–",
+                           churnOk ? "green" : "red", "≤ 10%",
+                           churnRate > 0 ? churnOk : null));
+      set("totalCac", cell(fmtKr(cacVal), "", null, null));
+      set("ltv",      cell(fmtKr(ltv), "", null, null));
+
+      const ltvCls = ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : "red";
+      set("ltvCac",  cell(ltvCac > 0 ? ltvCac + "×" : "–", ltvCls,
+                          "3–5×", ltvCac > 0 ? ltvCac >= 3 : null));
+      set("payback", cell(payback > 0 ? payback + " months" : "–",
+                          payback > 0 && payback <= 3 ? "green" : payback > 3 ? "red" : "",
+                          "< 3 months", payback > 0 ? payback <= 3 : null));
     }
   }
 
