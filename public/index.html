@@ -128,7 +128,7 @@
 
     .topbar-inner {
       height: 52px;
-      max-width: 900px;
+      max-width: 1300px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -141,7 +141,7 @@
     }
 
     main {
-      max-width: 900px;
+      max-width: 1300px;
       width: 100%;
       margin: 40px 0;
       padding: 0 40px;
@@ -229,19 +229,19 @@
     .ov-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 20px;
       margin-bottom: 32px;
     }
     .ov-card {
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: hidden;
     }
     .ov-card-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 14px 18px 12px;
+      padding: 18px 22px 14px;
       border-bottom: 1px solid var(--border);
     }
     .ov-color-dot {
@@ -251,32 +251,69 @@
       flex-shrink: 0;
     }
     .ov-card-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text);
     }
     .ov-metrics {
-      padding: 4px 0 8px;
+      padding: 4px 0 10px;
     }
     .ov-row {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      padding: 7px 18px;
+      align-items: center;
+      padding: 11px 22px;
       border-bottom: 1px solid var(--border);
       font-size: 13px;
+      gap: 12px;
     }
     .ov-row:last-child { border-bottom: none; }
     .ov-row-label { color: var(--muted); flex-shrink: 0; }
-    .ov-row-right { display: flex; align-items: center; gap: 6px; }
-    .ov-row-actual { font-weight: 600; color: var(--text); }
-    .ov-row-actual.green { color: #3b6d11; }
-    .ov-row-actual.red   { color: #a32d2d; }
+
+    /* Right side: value on top, goal+badge below */
+    .ov-row-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .ov-row-actual {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .ov-row-actual.green { color: #1f7a3c; }
+    .ov-row-actual.red   { color: #c0392b; }
     .ov-row-actual.muted { color: var(--muted); font-weight: 400; }
-    .ov-row-goal-txt { font-size: 11px; color: var(--muted); white-space: nowrap; }
-    .ov-check { font-size: 13px; font-weight: 700; flex-shrink: 0; }
-    .ov-check.ok  { color: #3b6d11; }
-    .ov-check.bad { color: #a32d2d; }
+
+    /* Sub-row: goal text + badge */
+    .ov-row-sub {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ov-row-goal-txt {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* Modern pill badges */
+    .ov-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.6;
+    }
+    .ov-badge.ok  { background: #d6f2e0; color: #1a6c30; }
+    .ov-badge.bad { background: #fde8e8; color: #9b2121; }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
@@ -427,12 +464,12 @@
                         ? Math.round(cacVal / avgMonthSek) : 0;
 
     function cell(valueHtml, valueCls, goalText, isOk) {
-      const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      const valSpan = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
       if (goalText == null) return valSpan;
-      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
-      const check    = isOk == null ? "" :
-        `<span class="ov-check ${isOk ? "ok" : "bad"}">${isOk ? "✓" : "✗"}</span>`;
-      return valSpan + goalSpan + check;
+      const badge = isOk == null ? "" :
+        `<span class="ov-badge ${isOk ? "ok" : "bad"}">${isOk ? "On track" : "Off track"}</span>`;
+      const subRow = `<span class="ov-row-sub"><span class="ov-row-goal-txt">Goal: ${goalText}</span>${badge}</span>`;
+      return valSpan + subRow;
     }
 
     function set(key, innerHTML) {
