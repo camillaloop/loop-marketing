@@ -624,9 +624,11 @@
 
     // Render sample charts immediately for il / el / ind
     ["il", "el", "ind"].forEach(id => {
-      const d = HIST_SAMPLE[id];
-      renderNewSubsChartTo(`hist-${id}-new`,   d.newByMonth);
-      renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth);
+      const loop  = LOOPS.find(l => l.id === id);
+      const color = loop?.color || "#8b4a4a";
+      const d     = HIST_SAMPLE[id];
+      renderNewSubsChartTo(`hist-${id}-new`,   d.newByMonth,   color);
+      renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth, color);
     });
 
     // Load real data for VC
@@ -650,8 +652,9 @@
 
   function applyVcHistoric(data) {
     if (!data?.stripe) return;
-    renderNewSubsChartTo("hist-vc-new",   data.stripe.newByMonth   || {});
-    renderChurnChartTo(  "hist-vc-churn", data.stripe.churnByMonth || {});
+    const vcColor = LOOPS.find(l => l.id === "vc")?.color || "#b9a6d4";
+    renderNewSubsChartTo("hist-vc-new",   data.stripe.newByMonth   || {}, vcColor);
+    renderChurnChartTo(  "hist-vc-churn", data.stripe.churnByMonth || {}, vcColor);
   }
 
   // ── Stub (kept for compatibility, no longer used by Historic tab) ──────────
@@ -920,17 +923,17 @@
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">${grid}${bars}</svg>`;
   }
 
-  function renderNewSubsChartTo(elId, newByMonth) {
+  function renderNewSubsChartTo(elId, newByMonth, color = "#8b4a4a") {
     const entries = Object.entries(newByMonth).sort(([a], [b]) => a.localeCompare(b));
-    renderBarChart(elId, entries, "#8b4a4a", null);
+    renderBarChart(elId, entries, color, null);
   }
 
-  function renderChurnChartTo(elId, churnByMonth) {
+  function renderChurnChartTo(elId, churnByMonth, color = "#a32d2d") {
     const entries = Object.entries(churnByMonth).sort(([a], [b]) => a.localeCompare(b));
     const xAt = (i) => { const cW = 420 - 36 - 10; return 36 + (i + 0.5) * (cW / entries.length); };
-    renderBarChart(elId, entries, "#a32d2d", (raw, i) => {
+    renderBarChart(elId, entries, color, (raw, i) => {
       const rate = typeof raw === "object" ? raw.churnRate : 0;
-      return `<text x="${xAt(i)}" y="${150 - 10}" text-anchor="middle" font-size="9" fill="#a32d2d">${rate}%</text>`;
+      return `<text x="${xAt(i)}" y="${150 - 10}" text-anchor="middle" font-size="9" fill="${color}">${rate}%</text>`;
     });
   }
 
