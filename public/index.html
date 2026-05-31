@@ -355,6 +355,7 @@
         <div class="ov-card-header">
           <div class="ov-color-dot" style="background:${loop.color}"></div>
           <div class="ov-card-title">${loop.label}</div>
+          ${loop.id === "vc" ? `<button onclick="loadVcData(true)" style="margin-left:auto;font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;cursor:pointer" id="ov-vc-refresh">Refresh</button>` : ""}
         </div>
         <div class="ov-metrics">
           ${METRICS.map(m => `
@@ -371,6 +372,79 @@
         <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Key metrics across all four loops</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
+
+    loadVcData();
+  }
+
+  let vcDataCache = null;
+
+  async function loadVcData(force = false) {
+    if (vcDataCache && !force) { renderVcMetrics(vcDataCache); return; }
+
+    // Mark cells as loading
+    METRICS.forEach(m => {
+      const el = document.getElementById(`ov-vc-${m.key}`);
+      if (el) { el.textContent = "…"; el.className = "ov-row-value muted"; }
+    });
+
+    try {
+      const BASE = "https://impactloopvc-news.vercel.app";
+      const [mrrRes, cacRes] = await Promise.all([
+        fetch(`${BASE}/api/mrr`).then(r => { if (!r.ok) throw new Error(`mrr ${r.status}`); return r.json(); }),
+        fetch(`${BASE}/api/cac-data`).then(r => { if (!r.ok) throw new Error(`cac-data ${r.status}`); return r.json(); }),
+      ]);
+      vcDataCache = { mrr: mrrRes, cac: cacRes };
+      renderVcMetrics(vcDataCache);
+    } catch (e) {
+      METRICS.forEach(m => {
+        const el = document.getElementById(`ov-vc-${m.key}`);
+        if (el) { el.textContent = "Error"; el.className = "ov-row-value red"; }
+      });
+      console.error("[vc data]", e);
+    }
+  }
+
+  function renderVcMetrics({ mrr, cac }) {
+    const ACQ_COST = 28230; // kr/month
+    const EUR_SEK  = mrr.eurSek || 11;
+
+    const s = cac?.stripe || {};
+    const currentMrr  = mrr.currentMrr  || 0;
+    const mondayMrr   = mrr.mondayMrr   || 0;
+    const newSubs     = s.lastMonthNewSubs   || 0;
+    const churnRate   = s.lastMonthChurnRate || 0; // %
+    const avgMonthSek = Math.round((s.avgMonthlyEur || 0) * EUR_SEK);
+
+    const mrrWeekNet = Math.round(currentMrr - mondayMrr);
+    const cacVal     = newSubs > 0 ? Math.round(ACQ_COST / newSubs) : 0;
+    const ltv        = churnRate > 0 && avgMonthSek > 0
+                         ? Math.round(avgMonthSek / (churnRate / 100)) : 0;
+    const ltvCac     = cacVal > 0 && ltv > 0
+                         ? Math.round((ltv / cacVal) * 10) / 10 : 0;
+    const payback    = cacVal > 0 && avgMonthSek > 0
+                         ? Math.round(cacVal / avgMonthSek) : 0;
+
+    const fmtKr  = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
+    const fmtPct = n => n > 0 ? n + "%" : "–";
+
+    function set(key, text, cls) {
+      const el = document.getElementById(`ov-vc-${key}`);
+      if (!el) return;
+      el.textContent = text;
+      el.className = "ov-row-value " + (cls || "");
+    }
+
+    const weekSign = mrrWeekNet >= 0 ? "+" : "−";
+    const weekCls  = mrrWeekNet >= 0 ? "green" : "red";
+    set("mrrWeek",  weekSign + Math.abs(mrrWeekNet).toLocaleString("sv-SE") + " kr", weekCls);
+    set("mrrMonth", fmtKr(currentMrr));
+    set("newSubs",  newSubs > 0 ? String(newSubs) : "–");
+    set("churnMax", fmtPct(churnRate));
+    set("totalCac", fmtKr(cacVal));
+    set("ltv",      fmtKr(ltv));
+    set("ltvCac",   ltvCac > 0 ? ltvCac + "×" : "–",
+                    ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : ltvCac > 0 ? "red" : "muted");
+    set("payback",  payback > 0 ? payback + " months" : "–");
   }
 
   function escHtml(s) {
