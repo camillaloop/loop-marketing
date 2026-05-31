@@ -379,6 +379,56 @@
     .agents-name { width: 75%; }
     .agents-num  { text-align: right; color: var(--muted); font-weight: 600; }
 
+    /* ── E-mail campaigns page ── */
+    .emc-week-badge {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--border);
+      border-radius: 20px;
+      padding: 2px 9px;
+    }
+    .emc-card-body {
+      padding: 6px 22px 14px;
+    }
+    .emc-row {
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .emc-row:last-child { border-bottom: none; }
+    .emc-row-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .emc-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .emc-date {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .emc-row-stats {
+      display: flex;
+      gap: 14px;
+    }
+    .emc-stat {
+      font-size: 12px;
+      color: var(--text);
+    }
+    .emc-stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-right: 3px;
+    }
+
     /* ── Historic data ── */
     .hist-section {
       margin-bottom: 44px;
@@ -433,10 +483,11 @@
   <div class="logo">Marketing</div>
   <nav>
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
-    <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
     <a class="nav-link" onclick="switchTab('attract', this)">Attract</a>
     <a class="nav-link" onclick="switchTab('engage', this)">Engage</a>
     <a class="nav-link" onclick="switchTab('agents', this)">Agents</a>
+    <a class="nav-link" onclick="switchTab('email-campaigns', this)">E-mail campaigns</a>
+    <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
   </nav>
 </aside>
 
@@ -453,11 +504,12 @@
 
 <script>
   const TAB_TITLES = {
-    "overview":      "Overview",
-    "historic-data": "Historic data",
-    "attract":       "Attract",
-    "engage":        "Engage",
-    "agents":        "Agents",
+    "overview":        "Overview",
+    "attract":         "Attract",
+    "engage":          "Engage",
+    "agents":          "Agents",
+    "email-campaigns": "E-mail campaigns",
+    "historic-data":   "Historic data",
   };
 
   function switchTab(tab, el) {
@@ -465,11 +517,12 @@
     if (el) el.classList.add("active");
     const titleEl = document.getElementById("topbar-title");
     if (titleEl) titleEl.textContent = TAB_TITLES[tab] || tab;
-    if (tab === "overview")      renderOverviewPage();
-    if (tab === "historic-data") renderHistoricData();
-    if (tab === "attract")       renderAttractPage();
-    if (tab === "engage")        renderEngagePage();
-    if (tab === "agents")        renderAgentsPage();
+    if (tab === "overview")        renderOverviewPage();
+    if (tab === "attract")         renderAttractPage();
+    if (tab === "engage")          renderEngagePage();
+    if (tab === "agents")          renderAgentsPage();
+    if (tab === "email-campaigns") renderEmailCampaignsPage();
+    if (tab === "historic-data")   renderHistoricData();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -1360,6 +1413,82 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+      </div>`;
+  }
+
+  // ── E-mail campaigns page ────────────────────────────────────────────────────
+  const EMAIL_CAMPAIGNS_DATA = {
+    il: {
+      week: "v. 22",
+      campaigns: [
+        { name: "Välkommen till Impact Loop",         date: "26 maj", opens: "62%", clicks: "14%" },
+        { name: "Veckans nyheter – hållbarhet",       date: "27 maj", opens: "48%", clicks: "9%"  },
+        { name: "Erbjudande: Prenumerera nu",         date: "29 maj", opens: "55%", clicks: "21%" },
+      ],
+    },
+    vc: {
+      week: "v. 22",
+      campaigns: [
+        { name: "Impact Loop VC – veckouppdatering",  date: "26 maj", opens: "71%", clicks: "18%" },
+        { name: "Investerarnytt: Ny portföljbolag",   date: "28 maj", opens: "65%", clicks: "22%" },
+      ],
+    },
+    el: {
+      week: "v. 22",
+      campaigns: [
+        { name: "Energy Loop – veckobrev",            date: "27 maj", opens: "44%", clicks: "8%"  },
+        { name: "Solenergi – trender denna vecka",    date: "29 maj", opens: "51%", clicks: "11%" },
+        { name: "Specialerbjudande: Energirapport",   date: "30 maj", opens: "38%", clicks: "6%"  },
+      ],
+    },
+    ind: {
+      week: "v. 22",
+      campaigns: [
+        { name: "Industrial Loop – veckonytt",        date: "27 maj", opens: "42%", clicks: "7%"  },
+        { name: "Hållbar industri: Nytt whitepaper",  date: "30 maj", opens: "46%", clicks: "13%" },
+      ],
+    },
+  };
+
+  function renderEmailCampaignsPage() {
+    const el = document.getElementById("main-content");
+    if (!el) return;
+
+    const cards = LOOPS.map(loop => {
+      const d = EMAIL_CAMPAIGNS_DATA[loop.id] || {};
+      const rows = (d.campaigns || []).map(c => `
+        <div class="emc-row">
+          <div class="emc-row-main">
+            <span class="emc-name">${escHtml(c.name)}</span>
+            <span class="emc-date">${escHtml(c.date)}</span>
+          </div>
+          <div class="emc-row-stats">
+            <span class="emc-stat"><span class="emc-stat-label">Opens</span> ${escHtml(c.opens)}</span>
+            <span class="emc-stat"><span class="emc-stat-label">Clicks</span> ${escHtml(c.clicks)}</span>
+          </div>
+        </div>`).join("");
+
+      const empty = `<div style="font-size:13px;color:var(--muted);padding:16px 0">Inga kampanjer den här veckan.</div>`;
+
+      return `
+        <div class="ov-card">
+          <div class="ov-card-header">
+            <span class="ov-color-dot" style="background:${loop.color}"></span>
+            <span class="ov-card-title">${escHtml(loop.label)}</span>
+            ${d.week ? `<span class="emc-week-badge">${escHtml(d.week)}</span>` : ""}
+          </div>
+          <div class="emc-card-body">
+            ${rows || empty}
+          </div>
+        </div>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">E-mail campaigns</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Kampanjer skickade denna vecka — alla fyra loopar</div>
+        <div class="ov-grid">${cards}</div>
+        <p style="font-size:11px;color:var(--muted);font-style:italic;margin-top:4px">Exempeldata – lägg in rätt</p>
       </div>`;
   }
 
