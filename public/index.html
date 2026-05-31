@@ -394,6 +394,7 @@
   ];
 
   const METRICS = [
+    { key: "mrrGrowthWeek",  label: "MRR growth/week"  },
     { key: "mrrGrowthMonth", label: "MRR growth/month" },
     { key: "mrrMonth",      label: "MRR/month" },
     { key: "newSubs",       label: "New subscribers" },
@@ -462,13 +463,15 @@
     const ACQ_COST      = 28230;
     const EUR_SEK       = d.eurSek            || 11;
     const currentMrr    = d.currentMrr        || 0;
-    const monthStartMrr = d.monthStartMrr     ?? d.mondayMrr ?? 0;
+    const weekStartMrr  = d.weekStartMrr      || 0;
+    const monthStartMrr = d.monthStartMrr     || 0;
     const newSubsWeek   = d.newSubsThisWeek   ?? null;
     const newSubs30     = d.lastMonthNewSubs   || 0;
     const churnRate     = d.lastMonthChurnRate || 0;
     const avgMonthSek   = Math.round((d.avgMonthlyEur || 0) * EUR_SEK);
 
-    const mrrGrowth = Math.round(currentMrr - monthStartMrr);
+    const mrrGrowthWeek  = Math.round(currentMrr - weekStartMrr);
+    const mrrGrowthMonth = Math.round(currentMrr - monthStartMrr);
     const cacVal    = newSubs30 > 0 ? Math.round(ACQ_COST / newSubs30) : 0;
     const ltv       = churnRate > 0 && avgMonthSek > 0
                         ? Math.round(avgMonthSek / (churnRate / 100)) : 0;
@@ -493,10 +496,14 @@
 
     const fmtKr = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
 
-    const sign    = mrrGrowth >= 0 ? "+" : "−";
-    const growCls = mrrGrowth >= 0 ? "green" : "red";
-    set("mrrGrowthMonth", cell(sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr",
-                               growCls, "8 000 kr", mrrGrowth >= 8000));
+    const fmtGrowth = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toLocaleString("sv-SE") + " kr";
+
+    set("mrrGrowthWeek",  cell(fmtGrowth(mrrGrowthWeek),
+                               mrrGrowthWeek  >= 0 ? "green" : "red",
+                               "2 000 kr", mrrGrowthWeek  >= 2000));
+    set("mrrGrowthMonth", cell(fmtGrowth(mrrGrowthMonth),
+                               mrrGrowthMonth >= 0 ? "green" : "red",
+                               "8 000 kr", mrrGrowthMonth >= 8000));
     set("mrrMonth",  cell(fmtKr(currentMrr), "", null, null));
 
     if (newSubsWeek !== null)
