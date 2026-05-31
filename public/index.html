@@ -671,7 +671,7 @@
       const color = loop?.color || "#8b4a4a";
       const d     = HIST_SAMPLE[id];
       renderNewSubsChartTo(`hist-${id}-new`,   d.newByMonth,   color);
-      renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth, color);
+      renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth);
     });
 
     // Load real data for VC
@@ -697,7 +697,7 @@
     if (!data?.stripe) return;
     const vcColor = LOOPS.find(l => l.id === "vc")?.color || "#b9a6d4";
     renderNewSubsChartTo("hist-vc-new",   data.stripe.newByMonth   || {}, vcColor);
-    renderChurnChartTo(  "hist-vc-churn", data.stripe.churnByMonth || {}, vcColor);
+    renderChurnChartTo(  "hist-vc-churn", data.stripe.churnByMonth || {});
   }
 
   // ── Stub (kept for compatibility, no longer used by Historic tab) ──────────
