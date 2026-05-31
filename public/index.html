@@ -262,7 +262,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 11px 22px;
+      padding: 9px 22px;
       border-bottom: 1px solid var(--border);
       font-size: 13px;
       gap: 12px;
@@ -270,50 +270,36 @@
     .ov-row:last-child { border-bottom: none; }
     .ov-row-label { color: var(--muted); flex-shrink: 0; }
 
-    /* Right side: value on top, goal+badge below */
+    /* Right side: value + goal + dot — single line */
     .ov-row-right {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
+      flex-direction: row;
+      align-items: center;
+      gap: 7px;
     }
     .ov-row-actual {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13.5px;
       color: var(--text);
-      line-height: 1;
+      white-space: nowrap;
     }
     .ov-row-actual.green { color: #1f7a3c; }
     .ov-row-actual.red   { color: #c0392b; }
     .ov-row-actual.muted { color: var(--muted); font-weight: 400; }
-
-    /* Sub-row: goal text + badge */
-    .ov-row-sub {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
     .ov-row-goal-txt {
       font-size: 11px;
       color: var(--muted);
       white-space: nowrap;
     }
-
-    /* Modern pill badges */
-    .ov-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.2px;
-      white-space: nowrap;
+    /* Small status dot */
+    .ov-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
       flex-shrink: 0;
-      line-height: 1.6;
     }
-    .ov-badge.ok  { background: #d6f2e0; color: #1a6c30; }
-    .ov-badge.bad { background: #fde8e8; color: #9b2121; }
+    .ov-dot.ok  { background: #1f7a3c; }
+    .ov-dot.bad { background: #c0392b; }
 
     /* ── Historic data ── */
     .hist-section {
@@ -492,12 +478,12 @@
                         ? Math.round(cacVal / avgMonthSek) : 0;
 
     function cell(valueHtml, valueCls, goalText, isOk) {
-      const valSpan = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
       if (goalText == null) return valSpan;
-      const badge = isOk == null ? "" :
-        `<span class="ov-badge ${isOk ? "ok" : "bad"}">${isOk ? "On track" : "Off track"}</span>`;
-      const subRow = `<span class="ov-row-sub"><span class="ov-row-goal-txt">Goal: ${goalText}</span>${badge}</span>`;
-      return valSpan + subRow;
+      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const dot      = isOk == null ? "" :
+        `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
+      return valSpan + goalSpan + dot;
     }
 
     function set(key, innerHTML) {
