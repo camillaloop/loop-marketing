@@ -408,7 +408,7 @@
   ];
 
   const METRICS = [
-    { key: "mrrGrowthWeek", label: "MRR growth/week" },
+    { key: "mrrGrowthMonth", label: "MRR growth/month" },
     { key: "mrrMonth",      label: "MRR/month" },
     { key: "newSubs",       label: "New subscribers" },
     { key: "churnMax",      label: "Churn" },
@@ -473,16 +473,16 @@
 
   function renderVcMetrics(d) {
     if (!d) return;
-    const ACQ_COST    = 28230;
-    const EUR_SEK     = d.eurSek            || 11;
-    const currentMrr  = d.currentMrr        || 0;
-    const mondayMrr   = d.mondayMrr         || 0;
-    const newSubsWeek = d.newSubsThisWeek    ?? null;
-    const newSubs30   = d.lastMonthNewSubs   || 0;
-    const churnRate   = d.lastMonthChurnRate || 0;
-    const avgMonthSek = Math.round((d.avgMonthlyEur || 0) * EUR_SEK);
+    const ACQ_COST      = 28230;
+    const EUR_SEK       = d.eurSek            || 11;
+    const currentMrr    = d.currentMrr        || 0;
+    const monthStartMrr = d.monthStartMrr     ?? d.mondayMrr ?? 0;
+    const newSubsWeek   = d.newSubsThisWeek   ?? null;
+    const newSubs30     = d.lastMonthNewSubs   || 0;
+    const churnRate     = d.lastMonthChurnRate || 0;
+    const avgMonthSek   = Math.round((d.avgMonthlyEur || 0) * EUR_SEK);
 
-    const mrrGrowth = Math.round(currentMrr - mondayMrr);
+    const mrrGrowth = Math.round(currentMrr - monthStartMrr);
     const cacVal    = newSubs30 > 0 ? Math.round(ACQ_COST / newSubs30) : 0;
     const ltv       = churnRate > 0 && avgMonthSek > 0
                         ? Math.round(avgMonthSek / (churnRate / 100)) : 0;
@@ -509,8 +509,8 @@
 
     const sign    = mrrGrowth >= 0 ? "+" : "−";
     const growCls = mrrGrowth >= 0 ? "green" : "red";
-    set("mrrGrowthWeek", cell(sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr",
-                              growCls, "2 000 kr", mrrGrowth >= 2000));
+    set("mrrGrowthMonth", cell(sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr",
+                               growCls, "8 000 kr", mrrGrowth >= 8000));
     set("mrrMonth",  cell(fmtKr(currentMrr), "", null, null));
 
     if (newSubsWeek !== null)
