@@ -376,41 +376,53 @@
     loadVcData();
   }
 
-  let vcDataCache = null;
+  let vcDataCache = { mrr: null, cac: null };
 
   async function loadVcData(force = false) {
-    if (vcDataCache && !force) { renderVcMetrics(vcDataCache); return; }
+    if (force) vcDataCache = { mrr: null, cac: null };
 
-    // Mark cells as loading
+    const BASE = "https://impactloopvc-news.vercel.app";
+
+    // Mark all VC cells as loading
     METRICS.forEach(m => {
       const el = document.getElementById(`ov-vc-${m.key}`);
       if (el) { el.textContent = "…"; el.className = "ov-row-value muted"; }
     });
 
-    try {
-      const BASE = "https://impactloopvc-news.vercel.app";
-      const [mrrRes, cacRes] = await Promise.all([
-        fetch(`${BASE}/api/mrr`).then(r => { if (!r.ok) throw new Error(`mrr ${r.status}`); return r.json(); }),
-        fetch(`${BASE}/api/cac-data`).then(r => { if (!r.ok) throw new Error(`cac-data ${r.status}`); return r.json(); }),
-      ]);
-      vcDataCache = { mrr: mrrRes, cac: cacRes };
-      renderVcMetrics(vcDataCache);
-    } catch (e) {
-      METRICS.forEach(m => {
-        const el = document.getElementById(`ov-vc-${m.key}`);
-        if (el) { el.textContent = "Error"; el.className = "ov-row-value red"; }
-      });
-      console.error("[vc data]", e);
-    }
+    // Load MRR (fast ~2s) and CAC (slow ~60s) independently
+    const mrrPromise = (vcDataCache.mrr && !force)
+      ? Promise.resolve(vcDataCache.mrr)
+      : fetch(`${BASE}/api/mrr`)
+          .then(r => { if (!r.ok) throw new Error(`mrr ${r.status}`); return r.json(); })
+          .then(d => { vcDataCache.mrr = d; return d; })
+          .catch(e => { console.error("[mrr]", e); return null; });
+
+    const cacPromise = (vcDataCache.cac && !force)
+      ? Promise.resolve(vcDataCache.cac)
+      : fetch(`${BASE}/api/cac-data`)
+          .then(r => { if (!r.ok) throw new Error(`cac-data ${r.status}`); return r.json(); })
+          .then(d => { vcDataCache.cac = d; return d; })
+          .catch(e => { console.error("[cac-data]", e); return null; });
+
+    // Render MRR cells as soon as MRR resolves
+    mrrPromise.then(mrr => {
+      if (mrr) renderVcMetrics({ mrr, cac: vcDataCache.cac });
+    });
+
+    // Render remaining cells once CAC resolves
+    cacPromise.then(cac => {
+      if (cac) renderVcMetrics({ mrr: vcDataCache.mrr, cac });
+    });
   }
 
   function renderVcMetrics({ mrr, cac }) {
+    if (!mrr && !cac) return;
     const ACQ_COST = 28230; // kr/month
-    const EUR_SEK  = mrr.eurSek || 11;
+    const EUR_SEK  = mrr?.eurSek || 11;
 
     const s = cac?.stripe || {};
-    const currentMrr  = mrr.currentMrr  || 0;
-    const mondayMrr   = mrr.mondayMrr   || 0;
+    const currentMrr  = mrr?.currentMrr  || 0;
+    const mondayMrr   = mrr?.mondayMrr   || 0;
     const newSubs     = s.lastMonthNewSubs   || 0;
     const churnRate   = s.lastMonthChurnRate || 0; // %
     const avgMonthSek = Math.round((s.avgMonthlyEur || 0) * EUR_SEK);
@@ -434,17 +446,24 @@
       el.className = "ov-row-value " + (cls || "");
     }
 
-    const weekSign = mrrWeekNet >= 0 ? "+" : "−";
-    const weekCls  = mrrWeekNet >= 0 ? "green" : "red";
-    set("mrrWeek",  weekSign + Math.abs(mrrWeekNet).toLocaleString("sv-SE") + " kr", weekCls);
-    set("mrrMonth", fmtKr(currentMrr));
-    set("newSubs",  newSubs > 0 ? String(newSubs) : "–");
-    set("churnMax", fmtPct(churnRate));
-    set("totalCac", fmtKr(cacVal));
-    set("ltv",      fmtKr(ltv));
-    set("ltvCac",   ltvCac > 0 ? ltvCac + "×" : "–",
-                    ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : ltvCac > 0 ? "red" : "muted");
-    set("payback",  payback > 0 ? payback + " months" : "–");
+    // MRR cells — only update if mrr data is available
+    if (mrr) {
+      const weekSign = mrrWeekNet >= 0 ? "+" : "−";
+      const weekCls  = mrrWeekNet >= 0 ? "green" : "red";
+      set("mrrWeek",  weekSign + Math.abs(mrrWeekNet).toLocaleString("sv-SE") + " kr", weekCls);
+      set("mrrMonth", fmtKr(currentMrr));
+    }
+
+    // CAC/subscriber cells — only update if cac data is available
+    if (cac) {
+      set("newSubs",  newSubs > 0 ? String(newSubs) : "–");
+      set("churnMax", fmtPct(churnRate));
+      set("totalCac", fmtKr(cacVal));
+      set("ltv",      fmtKr(ltv));
+      set("ltvCac",   ltvCac > 0 ? ltvCac + "×" : "–",
+                      ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : ltvCac > 0 ? "red" : "muted");
+      set("payback",  payback > 0 ? payback + " months" : "–");
+    }
   }
 
   function escHtml(s) {
