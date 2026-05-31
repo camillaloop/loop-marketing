@@ -381,57 +381,41 @@
     loadVcData();
   }
 
-  let vcDataCache = { mrr: null, cac: null };
+  let vcDataCache = null;
 
   async function loadVcData(force = false) {
-    if (force) vcDataCache = { mrr: null, cac: null };
-
-    const BASE = "https://impactloopvc-news.vercel.app";
+    if (vcDataCache && !force) { renderVcMetrics(vcDataCache); return; }
 
     // Mark all VC cells as loading
     METRICS.forEach(m => {
       const el = document.getElementById(`ov-vc-${m.key}`);
-      if (el) { el.textContent = "…"; el.className = "ov-row-value muted"; }
+      if (el) el.innerHTML = `<span class="ov-row-actual muted">…</span>`;
     });
 
-    // Load MRR (fast ~2s) and CAC (slow ~60s) independently
-    const mrrPromise = (vcDataCache.mrr && !force)
-      ? Promise.resolve(vcDataCache.mrr)
-      : fetch(`${BASE}/api/mrr`)
-          .then(r => { if (!r.ok) throw new Error(`mrr ${r.status}`); return r.json(); })
-          .then(d => { vcDataCache.mrr = d; return d; })
-          .catch(e => { console.error("[mrr]", e); return null; });
-
-    const cacPromise = (vcDataCache.cac && !force)
-      ? Promise.resolve(vcDataCache.cac)
-      : fetch(`${BASE}/api/cac-data`)
-          .then(r => { if (!r.ok) throw new Error(`cac-data ${r.status}`); return r.json(); })
-          .then(d => { vcDataCache.cac = d; return d; })
-          .catch(e => { console.error("[cac-data]", e); return null; });
-
-    // Render MRR cells as soon as MRR resolves
-    mrrPromise.then(mrr => {
-      if (mrr) renderVcMetrics({ mrr, cac: vcDataCache.cac });
-    });
-
-    // Render remaining cells once CAC resolves
-    cacPromise.then(cac => {
-      if (cac) renderVcMetrics({ mrr: vcDataCache.mrr, cac });
-    });
+    try {
+      const r = await fetch("https://impactloopvc-news.vercel.app/api/mrr");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      vcDataCache = await r.json();
+      renderVcMetrics(vcDataCache);
+    } catch (e) {
+      METRICS.forEach(m => {
+        const el = document.getElementById(`ov-vc-${m.key}`);
+        if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
+      });
+      console.error("[vc mrr]", e);
+    }
   }
 
-  function renderVcMetrics({ mrr, cac }) {
-    if (!mrr && !cac) return;
-    const ACQ_COST = 28230;
-    const EUR_SEK  = mrr?.eurSek || 11;
-
-    const s           = cac?.stripe || {};
-    const currentMrr  = mrr?.currentMrr      || 0;
-    const mondayMrr   = mrr?.mondayMrr       || 0;
-    const newSubsWeek = mrr?.newSubsThisWeek ?? null; // from mrr API
-    const churnRate   = s.lastMonthChurnRate || 0;
-    const avgMonthSek = Math.round((s.avgMonthlyEur || 0) * EUR_SEK);
-    const newSubs30   = s.lastMonthNewSubs   || 0; // for CAC calc (30-day)
+  function renderVcMetrics(d) {
+    if (!d) return;
+    const ACQ_COST    = 28230;
+    const EUR_SEK     = d.eurSek            || 11;
+    const currentMrr  = d.currentMrr        || 0;
+    const mondayMrr   = d.mondayMrr         || 0;
+    const newSubsWeek = d.newSubsThisWeek    ?? null;
+    const newSubs30   = d.lastMonthNewSubs   || 0;
+    const churnRate   = d.lastMonthChurnRate || 0;
+    const avgMonthSek = Math.round((d.avgMonthlyEur || 0) * EUR_SEK);
 
     const mrrGrowth = Math.round(currentMrr - mondayMrr);
     const cacVal    = newSubs30 > 0 ? Math.round(ACQ_COST / newSubs30) : 0;
@@ -442,10 +426,8 @@
     const payback   = cacVal > 0 && avgMonthSek > 0
                         ? Math.round(cacVal / avgMonthSek) : 0;
 
-    // Build innerHTML for a metric cell
-    // goalText = null → no goal; isOk = null → no indicator
     function cell(valueHtml, valueCls, goalText, isOk) {
-      const valSpan = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
       if (goalText == null) return valSpan;
       const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
       const check    = isOk == null ? "" :
@@ -455,40 +437,35 @@
 
     function set(key, innerHTML) {
       const el = document.getElementById(`ov-vc-${key}`);
-      if (!el) return;
-      el.innerHTML = innerHTML;
+      if (el) el.innerHTML = innerHTML;
     }
 
     const fmtKr = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
 
-    if (mrr) {
-      const sign    = mrrGrowth >= 0 ? "+" : "−";
-      const growCls = mrrGrowth >= 0 ? "green" : "red";
-      const growStr = sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr";
-      set("mrrGrowthWeek", cell(growStr, growCls, "2 000 kr", mrrGrowth >= 2000));
-      set("mrrMonth",      cell(fmtKr(currentMrr), "", null, null));
+    const sign    = mrrGrowth >= 0 ? "+" : "−";
+    const growCls = mrrGrowth >= 0 ? "green" : "red";
+    set("mrrGrowthWeek", cell(sign + Math.abs(mrrGrowth).toLocaleString("sv-SE") + " kr",
+                              growCls, "2 000 kr", mrrGrowth >= 2000));
+    set("mrrMonth",  cell(fmtKr(currentMrr), "", null, null));
 
-      if (newSubsWeek !== null) {
-        set("newSubs", cell(String(newSubsWeek), newSubsWeek >= 10 ? "green" : "red",
-                            "10 / week", newSubsWeek >= 10));
-      }
-    }
+    if (newSubsWeek !== null)
+      set("newSubs", cell(String(newSubsWeek),
+                          newSubsWeek >= 10 ? "green" : "red",
+                          "10 / week", newSubsWeek >= 10));
 
-    if (cac) {
-      const churnOk = churnRate > 0 && churnRate <= 10;
-      set("churnMax", cell(churnRate > 0 ? churnRate + "%" : "–",
-                           churnOk ? "green" : "red", "≤ 10%",
-                           churnRate > 0 ? churnOk : null));
-      set("totalCac", cell(fmtKr(cacVal), "", null, null));
-      set("ltv",      cell(fmtKr(ltv), "", null, null));
+    const churnOk = churnRate > 0 && churnRate <= 10;
+    set("churnMax", cell(churnRate > 0 ? churnRate + "%" : "–",
+                         churnOk ? "green" : "red",
+                         "≤ 10%", churnRate > 0 ? churnOk : null));
+    set("totalCac", cell(fmtKr(cacVal), "", null, null));
+    set("ltv",      cell(fmtKr(ltv), "", null, null));
 
-      const ltvCls = ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : "red";
-      set("ltvCac",  cell(ltvCac > 0 ? ltvCac + "×" : "–", ltvCls,
-                          "3–5×", ltvCac > 0 ? ltvCac >= 3 : null));
-      set("payback", cell(payback > 0 ? payback + " months" : "–",
-                          payback > 0 && payback <= 3 ? "green" : payback > 3 ? "red" : "",
-                          "< 3 months", payback > 0 ? payback <= 3 : null));
-    }
+    const ltvCls = ltvCac >= 5 ? "green" : ltvCac >= 3 ? "" : "red";
+    set("ltvCac",  cell(ltvCac > 0 ? ltvCac + "×" : "–", ltvCls,
+                        "3–5×", ltvCac > 0 ? ltvCac >= 3 : null));
+    set("payback", cell(payback > 0 ? payback + " months" : "–",
+                        payback > 0 && payback <= 3 ? "green" : payback > 3 ? "red" : "",
+                        "< 3 months", payback > 0 ? payback <= 3 : null));
   }
 
   function escHtml(s) {
