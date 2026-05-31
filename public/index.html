@@ -430,6 +430,7 @@
       </div>`;
 
     loadVcData();
+    loadIlData();
   }
 
   let vcDataCache = null;
@@ -503,7 +504,6 @@
     set("mrrGrowthMonth", cell(fmtGrowth(mrrGrowthMonth),
                                mrrGrowthMonth >= 0 ? "green" : "red",
                                "8 000 kr", mrrGrowthMonth >= 8000));
-    set("mrrMonth",  cell(fmtKr(currentMrr), "", null, null));
 
     if (newSubsWeek !== null)
       set("newSubs", cell(String(newSubsWeek),
@@ -523,6 +523,57 @@
     set("payback", cell(payback > 0 ? payback + " months" : "–",
                         payback > 0 && payback <= 3 ? "green" : payback > 3 ? "red" : "",
                         "< 3 months", payback > 0 ? payback <= 3 : null));
+  }
+
+  // ── Impact Loop Sverige (Google Sheets MRR) ──────────────────────────────
+  let ilDataCache = null;
+
+  async function loadIlData(force = false) {
+    if (ilDataCache && !force) { renderIlMetrics(ilDataCache); return; }
+    try {
+      const r = await fetch("https://impactloop-swe-news.vercel.app/api/mrr");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      ilDataCache = await r.json();
+      renderIlMetrics(ilDataCache);
+    } catch (e) {
+      ["mrrGrowthWeek", "mrrGrowthMonth"].forEach(key => {
+        const el = document.getElementById(`ov-il-${key}`);
+        if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
+      });
+      console.error("[il mrr]", e);
+    }
+  }
+
+  function renderIlMetrics(d) {
+    if (!d) return;
+    const currentMrr    = d.currentMrr    || 0;
+    const weekStartMrr  = d.mondayMrr     || 0;   // IL API uses mondayMrr
+    const monthStartMrr = d.monthStartMrr || 0;
+
+    const mrrGrowthWeek  = Math.round(currentMrr - weekStartMrr);
+    const mrrGrowthMonth = Math.round(currentMrr - monthStartMrr);
+
+    const fmtGrowth = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toLocaleString("sv-SE") + " kr";
+
+    function setIl(key, innerHTML) {
+      const el = document.getElementById(`ov-il-${key}`);
+      if (el) el.innerHTML = innerHTML;
+    }
+    function cell(valueHtml, valueCls, goalText, isOk) {
+      const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      if (goalText == null) return valSpan;
+      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const dot      = isOk == null ? "" :
+        `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
+      return valSpan + goalSpan + dot;
+    }
+
+    setIl("mrrGrowthWeek",  cell(fmtGrowth(mrrGrowthWeek),
+                                 mrrGrowthWeek  >= 0 ? "green" : "red",
+                                 "2 000 kr", mrrGrowthWeek  >= 2000));
+    setIl("mrrGrowthMonth", cell(fmtGrowth(mrrGrowthMonth),
+                                 mrrGrowthMonth >= 0 ? "green" : "red",
+                                 "8 000 kr", mrrGrowthMonth >= 8000));
   }
 
   function escHtml(s) {
