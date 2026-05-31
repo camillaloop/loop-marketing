@@ -397,7 +397,7 @@
     { key: "mrrGrowthWeek",  label: "MRR growth/week"  },
     { key: "mrrGrowthMonth", label: "MRR growth/month" },
     { key: "mrrMonth",      label: "MRR/month" },
-    { key: "newSubs",       label: "New subscribers" },
+    { key: "newSubs",       label: "New subscribers/week" },
     { key: "churnMax",      label: "Churn" },
     { key: "totalCac",      label: "Total CAC" },
     { key: "ltv",           label: "LTV" },
@@ -509,7 +509,7 @@
     if (newSubsWeek !== null)
       set("newSubs", cell(String(newSubsWeek),
                           newSubsWeek >= 10 ? "green" : "red",
-                          "10 / week", newSubsWeek >= 10));
+                          "10", newSubsWeek >= 10));
 
     const churnOk = churnRate > 0 && churnRate <= 10;
     set("churnMax", cell(churnRate > 0 ? churnRate + "%" : "–",
