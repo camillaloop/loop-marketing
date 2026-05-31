@@ -35,8 +35,10 @@
       position: fixed; top: 0; left: 0; right: 0; height: 48px;
       background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08);
       display: flex; align-items: center; gap: 6px; padding: 0 20px;
-      z-index: 300;
+      z-index: 300; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .app-switcher::-webkit-scrollbar { display: none; }
     .app-switcher a {
       font-size: 13px; font-weight: 700; color: #1a1a18;
       text-decoration: none; padding: 6px 16px; border-radius: 8px;
