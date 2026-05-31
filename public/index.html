@@ -1419,10 +1419,20 @@
       </div>`;
   }
 
+  // Returns ISO week number label, e.g. "v. 22"
+  function currentWeekLabel() {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); // Thursday of current ISO week
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    return `v. ${week}`;
+  }
+
   // ── E-mail campaigns page ────────────────────────────────────────────────────
   const EMAIL_CAMPAIGNS_DATA = {
     il: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Välkommen till Impact Loop",         date: "26 maj", opens: "62%", clicks: "14%" },
         { name: "Veckans nyheter – hållbarhet",       date: "27 maj", opens: "48%", clicks: "9%"  },
@@ -1430,14 +1440,14 @@
       ],
     },
     vc: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Impact Loop VC – veckouppdatering",  date: "26 maj", opens: "71%", clicks: "18%" },
         { name: "Investerarnytt: Ny portföljbolag",   date: "28 maj", opens: "65%", clicks: "22%" },
       ],
     },
     el: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Energy Loop – veckobrev",            date: "27 maj", opens: "44%", clicks: "8%"  },
         { name: "Solenergi – trender denna vecka",    date: "29 maj", opens: "51%", clicks: "11%" },
@@ -1445,7 +1455,7 @@
       ],
     },
     ind: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Industrial Loop – veckonytt",        date: "27 maj", opens: "42%", clicks: "7%"  },
         { name: "Hållbar industri: Nytt whitepaper",  date: "30 maj", opens: "46%", clicks: "13%" },
@@ -1498,28 +1508,28 @@
   // ── LinkedIn campaigns page ──────────────────────────────────────────────────
   const LINKEDIN_CAMPAIGNS_DATA = {
     il: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Impact Loop – Prenumerera nu",        date: "26 maj", impressions: "4 820", clicks: "112", ctr: "2.3%" },
         { name: "Hållbarhet lönar sig – ny rapport",   date: "28 maj", impressions: "3 210", clicks: "74",  ctr: "2.3%" },
       ],
     },
     vc: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Impact Loop VC – för investerare",    date: "27 maj", impressions: "2 540", clicks: "91",  ctr: "3.6%" },
         { name: "Portföljuppdatering: Q2 2026",        date: "29 maj", impressions: "1 880", clicks: "63",  ctr: "3.4%" },
       ],
     },
     el: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Energy Loop – följ med nu",           date: "27 maj", impressions: "3 670", clicks: "88",  ctr: "2.4%" },
         { name: "Solenergi: veckoanalys",              date: "30 maj", impressions: "2 190", clicks: "51",  ctr: "2.3%" },
       ],
     },
     ind: {
-      week: "v. 22",
+      week: currentWeekLabel(),
       campaigns: [
         { name: "Industrial Loop – hållbar industri",  date: "28 maj", impressions: "2 910", clicks: "67",  ctr: "2.3%" },
       ],
