@@ -301,6 +301,55 @@
     .ov-dot.ok  { background: #1f7a3c; }
     .ov-dot.bad { background: #c0392b; }
 
+    /* ── Attract page ── */
+    .att-card-body {
+      padding: 18px 22px 20px;
+    }
+    .att-email-goal {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .att-email-count {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .att-email-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .att-apollo-row {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .att-ch-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .att-ch-head {
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 0 0 7px;
+      border-bottom: 1px solid var(--border);
+    }
+    .att-ch-row td {
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .att-ch-row:last-child td { border-bottom: none; }
+    .att-ch-name { width: 36%; }
+    .att-ch-val  { text-align: right; color: var(--muted); width: 16%; }
+
     /* ── Historic data ── */
     .hist-section {
       margin-bottom: 44px;
@@ -356,6 +405,7 @@
   <nav>
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
+    <a class="nav-link" onclick="switchTab('attract', this)">Attract</a>
   </nav>
 </aside>
 
@@ -374,6 +424,7 @@
   const TAB_TITLES = {
     "overview":      "Overview",
     "historic-data": "Historic data",
+    "attract":       "Attract",
   };
 
   function switchTab(tab, el) {
@@ -383,6 +434,7 @@
     if (titleEl) titleEl.textContent = TAB_TITLES[tab] || tab;
     if (tab === "overview")      renderOverviewPage();
     if (tab === "historic-data") renderHistoricData();
+    if (tab === "attract")       renderAttractPage();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -570,10 +622,10 @@
 
     setIl("mrrGrowthWeek",  cell(fmtGrowth(mrrGrowthWeek),
                                  mrrGrowthWeek  >= 0 ? "green" : "red",
-                                 "2 000 kr", mrrGrowthWeek  >= 2000));
+                                 "2 500 kr", mrrGrowthWeek  >= 2500));
     setIl("mrrGrowthMonth", cell(fmtGrowth(mrrGrowthMonth),
                                  mrrGrowthMonth >= 0 ? "green" : "red",
-                                 "8 000 kr", mrrGrowthMonth >= 8000));
+                                 "10 000 kr", mrrGrowthMonth >= 10000));
   }
 
   function escHtml(s) {
@@ -1066,6 +1118,94 @@
           <div class="kd-bar-count">${s.count}</div>
         </div>`;
       }).join("")}`;
+  }
+
+  // ── Attract page ─────────────────────────────────────────────────────────────
+  const ATTRACT_DATA = {
+    il:  { emailGoal: "–", emailActual: "–", apolloDelivered: "–",
+           channels: [
+             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    vc:  { emailGoal: "–", emailActual: "–", apolloDelivered: "–",
+           channels: [
+             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    el:  { emailGoal: "–", emailActual: "–", apolloDelivered: "–",
+           channels: [
+             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    ind: { emailGoal: "–", emailActual: "–", apolloDelivered: "–",
+           channels: [
+             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+  };
+
+  function renderAttractPage() {
+    const el = document.getElementById("main-content");
+    if (!el) return;
+
+    const cards = LOOPS.map(loop => {
+      const d = ATTRACT_DATA[loop.id] || {};
+      const rows = (d.channels || []).map(ch => `
+        <tr class="att-ch-row">
+          <td class="att-ch-name">${escHtml(ch.name)}</td>
+          <td class="att-ch-val">${escHtml(ch.number)}</td>
+          <td class="att-ch-val">${escHtml(ch.cost)}</td>
+          <td class="att-ch-val">${escHtml(ch.converted)}</td>
+          <td class="att-ch-val">${escHtml(ch.cac)}</td>
+        </tr>`).join("");
+
+      return `
+        <div class="ov-card">
+          <div class="ov-card-header">
+            <span class="ov-color-dot" style="background:${loop.color}"></span>
+            <span class="ov-card-title">${escHtml(loop.label)}</span>
+          </div>
+          <div class="att-card-body">
+            <div class="att-email-goal">
+              Goal e-mail addresses:
+              <span class="att-email-count">${escHtml(d.emailActual)} / ${escHtml(d.emailGoal)}</span>
+              <span class="att-email-sub">per week</span>
+            </div>
+            <div class="att-apollo-row">Delivered by Apollo agent: <strong>${escHtml(d.apolloDelivered)}</strong></div>
+            <table class="att-ch-table">
+              <thead>
+                <tr>
+                  <th class="att-ch-head att-ch-name">Channel</th>
+                  <th class="att-ch-head att-ch-val">Number</th>
+                  <th class="att-ch-head att-ch-val">Cost</th>
+                  <th class="att-ch-head att-ch-val">Converted</th>
+                  <th class="att-ch-head att-ch-val">CAC</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Attract</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">E-mail addresses collected per week — all four loops</div>
+        <div class="ov-grid">${cards}</div>
+      </div>`;
   }
 
   // Boot
