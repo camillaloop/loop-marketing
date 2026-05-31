@@ -406,6 +406,7 @@
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
     <a class="nav-link" onclick="switchTab('attract', this)">Attract</a>
+    <a class="nav-link" onclick="switchTab('engage', this)">Engage</a>
   </nav>
 </aside>
 
@@ -425,6 +426,7 @@
     "overview":      "Overview",
     "historic-data": "Historic data",
     "attract":       "Attract",
+    "engage":        "Engage",
   };
 
   function switchTab(tab, el) {
@@ -435,6 +437,7 @@
     if (tab === "overview")      renderOverviewPage();
     if (tab === "historic-data") renderHistoricData();
     if (tab === "attract")       renderAttractPage();
+    if (tab === "engage")        renderEngagePage();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -1204,6 +1207,90 @@
       <div style="padding:24px 0 8px">
         <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Attract</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:32px">E-mail addresses collected per week — all four loops</div>
+        <div class="ov-grid">${cards}</div>
+      </div>`;
+  }
+
+  // ── Engage page ──────────────────────────────────────────────────────────────
+  const ENGAGE_DATA = {
+    il:  { subGoal: "–", subActual: "–", agentsDelivered: "–",
+           channels: [
+             { name: "E-mail campaign",            number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Personal e-mail with offer", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn ads",               number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",                    number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    vc:  { subGoal: "–", subActual: "–", agentsDelivered: "–",
+           channels: [
+             { name: "E-mail campaign",            number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Personal e-mail with offer", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn ads",               number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",                    number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    el:  { subGoal: "–", subActual: "–", agentsDelivered: "–",
+           channels: [
+             { name: "E-mail campaign",            number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Personal e-mail with offer", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn ads",               number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",                    number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+    ind: { subGoal: "–", subActual: "–", agentsDelivered: "–",
+           channels: [
+             { name: "E-mail campaign",            number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Personal e-mail with offer", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "LinkedIn ads",               number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Organic",                    number: "–", cost: "–", converted: "–", cac: "–" },
+           ]},
+  };
+
+  function renderEngagePage() {
+    const el = document.getElementById("main-content");
+    if (!el) return;
+
+    const cards = LOOPS.map(loop => {
+      const d = ENGAGE_DATA[loop.id] || {};
+      const rows = (d.channels || []).map(ch => `
+        <tr class="att-ch-row">
+          <td class="att-ch-name">${escHtml(ch.name)}</td>
+          <td class="att-ch-val">${escHtml(ch.number)}</td>
+          <td class="att-ch-val">${escHtml(ch.cost)}</td>
+          <td class="att-ch-val">${escHtml(ch.converted)}</td>
+          <td class="att-ch-val">${escHtml(ch.cac)}</td>
+        </tr>`).join("");
+
+      return `
+        <div class="ov-card">
+          <div class="ov-card-header">
+            <span class="ov-color-dot" style="background:${loop.color}"></span>
+            <span class="ov-card-title">${escHtml(loop.label)}</span>
+          </div>
+          <div class="att-card-body">
+            <div class="att-email-goal">
+              Goal sold subscriptions:
+              <span class="att-email-count">${escHtml(d.subActual)} / ${escHtml(d.subGoal)}</span>
+              <span class="att-email-sub">per week</span>
+            </div>
+            <div class="att-apollo-row">Delivered by agents: <strong>${escHtml(d.agentsDelivered)}</strong></div>
+            <table class="att-ch-table">
+              <thead>
+                <tr>
+                  <th class="att-ch-head att-ch-name">Channel</th>
+                  <th class="att-ch-head att-ch-val">Number sent to</th>
+                  <th class="att-ch-head att-ch-val">Cost</th>
+                  <th class="att-ch-head att-ch-val">Converted</th>
+                  <th class="att-ch-head att-ch-val">CAC</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Engage</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Sold subscriptions per week — all four loops</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
   }
