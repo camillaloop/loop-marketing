@@ -315,6 +315,35 @@
     .ov-badge.ok  { background: #d6f2e0; color: #1a6c30; }
     .ov-badge.bad { background: #fde8e8; color: #9b2121; }
 
+    /* ── Historic data ── */
+    .hist-section {
+      margin-bottom: 44px;
+    }
+    .hist-loop-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .hist-loop-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .hist-badge-live, .hist-badge-sample {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+    }
+    .hist-badge-live   { background: #d6f2e0; color: #1a6c30; }
+    .hist-badge-sample { background: #f0f0ee; color: #888; }
+    .hist-charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
     /* ── Mobile ── */
     @media (max-width: 640px) {
       .content { margin-left: 0; }
@@ -322,6 +351,7 @@
       main { padding: 0 16px; margin: 20px 0; }
       .topbar { padding: 0 16px; }
       .ov-grid { grid-template-columns: 1fr; }
+      .hist-charts-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -339,7 +369,7 @@
   <div class="logo">Marketing</div>
   <nav>
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
-    <a class="nav-link" onclick="switchTab('channel-performance', this)">Channel performance</a>
+    <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
   </nav>
 </aside>
 
@@ -355,11 +385,9 @@
 </div>
 
 <script>
-  let perfCache = null;
-
   const TAB_TITLES = {
-    "overview":             "Overview",
-    "channel-performance":  "Channel performance",
+    "overview":      "Overview",
+    "historic-data": "Historic data",
   };
 
   function switchTab(tab, el) {
@@ -367,8 +395,8 @@
     if (el) el.classList.add("active");
     const titleEl = document.getElementById("topbar-title");
     if (titleEl) titleEl.textContent = TAB_TITLES[tab] || tab;
-    if (tab === "overview")            renderOverviewPage();
-    if (tab === "channel-performance") renderChannelPerformance();
+    if (tab === "overview")      renderOverviewPage();
+    if (tab === "historic-data") renderHistoricData();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -513,7 +541,120 @@
       .replace(/"/g, "&quot;");
   }
 
-  // ── Channel performance ───────────────────────────────────────────────────
+  // ── Historic data ─────────────────────────────────────────────────────────
+
+  // Sample monthly data for loops without live integration yet
+  const HIST_SAMPLE = {
+    il: {
+      newByMonth: {
+        "2025-12": 12, "2026-01": 18, "2026-02": 25,
+        "2026-03": 20, "2026-04": 28, "2026-05": 22,
+      },
+      churnByMonth: {
+        "2025-12": { churned: 3,  churnRate: "8.2"  },
+        "2026-01": { churned: 4,  churnRate: "9.1"  },
+        "2026-02": { churned: 5,  churnRate: "8.8"  },
+        "2026-03": { churned: 6,  churnRate: "9.5"  },
+        "2026-04": { churned: 7,  churnRate: "9.3"  },
+        "2026-05": { churned: 8,  churnRate: "10.1" },
+      },
+    },
+    el: {
+      newByMonth: {
+        "2025-12": 6,  "2026-01": 9,  "2026-02": 14,
+        "2026-03": 11, "2026-04": 16, "2026-05": 13,
+      },
+      churnByMonth: {
+        "2025-12": { churned: 2, churnRate: "6.5" },
+        "2026-01": { churned: 2, churnRate: "6.1" },
+        "2026-02": { churned: 3, churnRate: "7.2" },
+        "2026-03": { churned: 3, churnRate: "6.8" },
+        "2026-04": { churned: 4, churnRate: "7.9" },
+        "2026-05": { churned: 5, churnRate: "8.4" },
+      },
+    },
+    ind: {
+      newByMonth: {
+        "2025-12": 4, "2026-01": 5, "2026-02": 8,
+        "2026-03": 7, "2026-04": 10, "2026-05": 8,
+      },
+      churnByMonth: {
+        "2025-12": { churned: 1, churnRate: "5.2" },
+        "2026-01": { churned: 1, churnRate: "4.8" },
+        "2026-02": { churned: 2, churnRate: "6.1" },
+        "2026-03": { churned: 2, churnRate: "5.9" },
+        "2026-04": { churned: 2, churnRate: "5.5" },
+        "2026-05": { churned: 3, churnRate: "6.8" },
+      },
+    },
+  };
+
+  let vcHistCache = null;
+
+  function renderHistoricData() {
+    const el = document.getElementById("main-content");
+
+    const loopSections = LOOPS.map(loop => `
+      <div class="hist-section">
+        <div class="hist-loop-header">
+          <div class="ov-color-dot" style="background:${loop.color}"></div>
+          <span class="hist-loop-title">${loop.label}</span>
+          ${loop.id === "vc"
+            ? `<span class="hist-badge-live">Live data</span>`
+            : `<span class="hist-badge-sample">Sample data</span>`}
+        </div>
+        <div class="hist-charts-grid">
+          <div class="kd-card">
+            <div class="kd-title">New subscribers — last 6 months</div>
+            <div id="hist-${loop.id}-new"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+          </div>
+          <div class="kd-card">
+            <div class="kd-title">Churn — last 6 months</div>
+            <div id="hist-${loop.id}-churn"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+          </div>
+        </div>
+      </div>`).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Historic data</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Subscriber trends across all four loops — last 6 months</div>
+        ${loopSections}
+      </div>`;
+
+    // Render sample charts immediately for il / el / ind
+    ["il", "el", "ind"].forEach(id => {
+      const d = HIST_SAMPLE[id];
+      renderNewSubsChartTo(`hist-${id}-new`,   d.newByMonth);
+      renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth);
+    });
+
+    // Load real data for VC
+    loadVcHistoric();
+  }
+
+  async function loadVcHistoric(force = false) {
+    if (vcHistCache && !force) { applyVcHistoric(vcHistCache); return; }
+    try {
+      const r = await fetch("/api/cac-data");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      vcHistCache = await r.json();
+      applyVcHistoric(vcHistCache);
+    } catch (e) {
+      ["new", "churn"].forEach(t => {
+        const el = document.getElementById(`hist-vc-${t}`);
+        if (el) el.innerHTML = `<span style="color:red;font-size:13px">Error: ${escHtml(e.message)}</span>`;
+      });
+    }
+  }
+
+  function applyVcHistoric(data) {
+    if (!data?.stripe) return;
+    renderNewSubsChartTo("hist-vc-new",   data.stripe.newByMonth   || {});
+    renderChurnChartTo(  "hist-vc-churn", data.stripe.churnByMonth || {});
+  }
+
+  // ── Stub (kept for compatibility, no longer used by Historic tab) ──────────
   function renderChannelPerformance() {
     document.getElementById("main-content").innerHTML = `
       <div style="max-width:680px;margin:0 auto;padding:24px 0">
@@ -779,15 +920,15 @@
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">${grid}${bars}</svg>`;
   }
 
-  function renderNewSubsChart(newByMonth) {
+  function renderNewSubsChartTo(elId, newByMonth) {
     const entries = Object.entries(newByMonth).sort(([a], [b]) => a.localeCompare(b));
-    renderBarChart("kd-new-chart", entries, "#8b4a4a", null);
+    renderBarChart(elId, entries, "#8b4a4a", null);
   }
 
-  function renderChurnChart(churnByMonth) {
+  function renderChurnChartTo(elId, churnByMonth) {
     const entries = Object.entries(churnByMonth).sort(([a], [b]) => a.localeCompare(b));
     const xAt = (i) => { const cW = 420 - 36 - 10; return 36 + (i + 0.5) * (cW / entries.length); };
-    renderBarChart("kd-churn-chart", entries, "#a32d2d", (raw, i) => {
+    renderBarChart(elId, entries, "#a32d2d", (raw, i) => {
       const rate = typeof raw === "object" ? raw.churnRate : 0;
       return `<text x="${xAt(i)}" y="${150 - 10}" text-anchor="middle" font-size="9" fill="#a32d2d">${rate}%</text>`;
     });
