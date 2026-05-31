@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop Marketing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --sidebar-bg: #f7f7f5;
+      --border: rgba(0,0,0,0.08);
+      --text: #1a1a18;
+      --muted: #6b6b63;
+      --accent: #8b4a4a;
+      --sidebar-width: 220px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: "DM Sans", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── App switcher ── */
+    .app-switcher {
+      position: fixed; top: 0; left: 0; right: 0; height: 48px;
+      background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08);
+      display: flex; align-items: center; gap: 6px; padding: 0 20px;
+      z-index: 300;
+    }
+    .app-switcher a {
+      font-size: 13px; font-weight: 700; color: #1a1a18;
+      text-decoration: none; padding: 6px 16px; border-radius: 8px;
+      white-space: nowrap; opacity: 0.35;
+      transition: opacity 0.15s, box-shadow 0.15s;
+    }
+    .app-switcher a:hover { opacity: 0.7; }
+    .app-switcher a.app-active { opacity: 1; box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
+    .app-switcher a.vs-il  { background: #e5ff00; }
+    .app-switcher a.vs-vc  { background: #d0c4de; }
+    .app-switcher a.vs-el  { background: #5be87a; }
+    .app-switcher a.vs-ind { background: #e4ffc2; }
+    .app-switcher a.vs-mkt { background: #e2baba; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 48px;
+      left: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 0 24px;
+      z-index: 200;
+    }
+
+    .logo {
+      font-family: "DM Serif Display", serif;
+      font-size: 17px;
+      color: var(--accent);
+      padding: 0 22px;
+      margin-bottom: 32px;
+      letter-spacing: -0.2px;
+    }
+
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 0 10px;
+    }
+
+    .nav-link {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 2px solid transparent;
+      transition: background 0.12s, color 0.12s;
+      display: block;
+      cursor: pointer;
+    }
+
+    .nav-link:hover {
+      background: rgba(0,0,0,0.04);
+      color: var(--text);
+    }
+
+    .nav-link.active {
+      background: rgba(0,0,0,0.05);
+      border-left-color: var(--accent);
+      color: var(--text);
+    }
+
+    /* ── Content ── */
+    .content {
+      margin-left: var(--sidebar-width);
+      padding-top: 48px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      position: sticky;
+      top: 48px;
+      z-index: 10;
+    }
+
+    .topbar-inner {
+      height: 52px;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 900px;
+      width: 100%;
+      margin: 40px 0;
+      padding: 0 40px;
+      flex: 1;
+    }
+
+    /* ── KD / Performance cards ── */
+    .kd-card {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .kd-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .kd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .kd-metric {
+      background: #f7f7f5;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .kd-metric-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .kd-metric-value { font-size: 22px; font-weight: 700; color: var(--text); }
+    .kd-metric-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .kd-metric-green  { color: #3b6d11; }
+    .kd-metric-yellow { color: #b07d00; }
+    .kd-metric-red    { color: #a32d2d; }
+    .kd-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .kd-input-row label { min-width: 200px; color: var(--muted); }
+    .kd-input {
+      width: 90px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: right;
+    }
+    .kd-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .kd-bar-label { min-width: 110px; color: var(--text); text-align: right; }
+    .kd-bar-track {
+      flex: 1;
+      background: #efefed;
+      border-radius: 3px;
+      height: 16px;
+      overflow: hidden;
+    }
+    .kd-bar-fill { height: 100%; background: #3b6d11; border-radius: 3px; transition: width 0.3s; }
+    .kd-bar-count { min-width: 36px; color: var(--muted); }
+    .kd-refresh-btn {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    .kd-refresh-btn:hover { background: rgba(0,0,0,0.04); }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      .content { margin-left: 0; }
+      .sidebar { transform: translateX(-100%); }
+      main { padding: 0 16px; margin: 20px 0; }
+      .topbar { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-switcher">
+  <a class="vs-il" href="https://impactloop-swe-news.vercel.app">Impact Loop</a>
+  <a class="vs-vc" href="https://impactloopvc-news.vercel.app">Impact Loop VC</a>
+  <a class="vs-el" href="https://energyloop-news.vercel.app">Energy Loop</a>
+  <a class="vs-ind" href="https://industrial-loop.vercel.app">Industrial Loop</a>
+  <a class="vs-mkt app-active" href="#">Marketing</a>
+</div>
+
+<aside class="sidebar">
+  <div class="logo">Marketing</div>
+  <nav>
+    <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
+  </nav>
+</aside>
+
+<div class="content">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <span class="topbar-title" id="topbar-title">Overview</span>
+    </div>
+  </div>
+  <main id="main-content">
+    <div style="font-size:13px;color:var(--muted)">Loading…</div>
+  </main>
+</div>
+
+<script>
+  let perfCache = null;
+
+  const TAB_TITLES = { overview: "Overview" };
+
+  function switchTab(tab, el) {
+    document.querySelectorAll(".nav-link").forEach(a => a.classList.remove("active"));
+    if (el) el.classList.add("active");
+    const titleEl = document.getElementById("topbar-title");
+    if (titleEl) titleEl.textContent = TAB_TITLES[tab] || tab;
+    if (tab === "overview") renderOverview();
+  }
+
+  function escHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ── Overview (Channel performance) ────────────────────────────────────────
+  function renderOverview() {
+    document.getElementById("main-content").innerHTML = `
+      <div style="max-width:680px;margin:0 auto;padding:24px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div>
+            <div style="font-size:20px;font-weight:700;color:var(--text)">Channel performance</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px">New paying subscribers — last 30 days</div>
+          </div>
+          <button class="kd-refresh-btn" onclick="loadPerformance(true)">Refresh</button>
+        </div>
+        <div id="perf-content"><span style="font-size:13px;color:var(--muted)">Loading… (may take up to 60 s)</span></div>
+
+        <!-- CAC Calculator -->
+        <div class="kd-card" id="kd-calc-card" style="margin-top:32px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span class="kd-title" style="margin-bottom:0">CAC calculator (last 30 days)</span>
+            <button class="kd-refresh-btn" id="kd-refresh-btn" onclick="loadCacData(true)">Refresh</button>
+          </div>
+          <div style="margin-bottom:16px">
+            <div class="kd-input-row"><label>Acquisition cost (kr/month)</label><input class="kd-input" id="kd-acq" type="number" value="28230" oninput="updateCacCalc()"></div>
+            <div class="kd-input-row"><label>New subscribers/month <span id="kd-newsubs-src" style="font-size:10px;color:var(--muted)"></span></label><input class="kd-input" id="kd-newsubs" type="number" placeholder="…" oninput="updateCacCalc()"></div>
+            <div class="kd-input-row"><label>Monthly churn % <span id="kd-churn-src" style="font-size:10px;color:var(--muted)"></span></label><input class="kd-input" id="kd-churn" type="number" placeholder="…" step="0.1" oninput="updateCacCalc()"></div>
+          </div>
+          <div class="kd-grid" id="kd-results">
+            <div class="kd-metric"><div class="kd-metric-label">CAC</div><div class="kd-metric-value" id="kd-cac">–</div><div class="kd-metric-sub">kr per new subscriber</div></div>
+            <div class="kd-metric"><div class="kd-metric-label">LTV</div><div class="kd-metric-value" id="kd-ltv">–</div><div class="kd-metric-sub">kr per subscriber</div></div>
+            <div class="kd-metric"><div class="kd-metric-label">LTV:CAC</div><div class="kd-metric-value" id="kd-ltvcac">–</div><div class="kd-metric-sub" id="kd-ltvcac-sub">–</div><div class="kd-metric-sub" style="color:var(--muted);margin-top:4px">Target: 3–5×</div></div>
+            <div class="kd-metric"><div class="kd-metric-label">Payback period</div><div class="kd-metric-value" id="kd-payback">–</div><div class="kd-metric-sub">months to break-even</div><div class="kd-metric-sub" style="color:var(--muted);margin-top:4px">Target: &lt; 3 months</div></div>
+          </div>
+          <div id="kd-stripe-meta" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
+        </div>
+
+        <!-- Source attribution -->
+        <div class="kd-card">
+          <div class="kd-title" id="kd-attribution-title">Source attribution — new subscribers (last 30 days)</div>
+          <div id="kd-attribution"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+        </div>
+
+        <!-- CAC per channel -->
+        <div class="kd-card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <span class="kd-title" style="margin-bottom:0">CAC per acquisition channel (last 30 days)</span>
+          </div>
+          <div id="kd-cac-channels-subtitle" style="font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+          <div style="display:flex;gap:16px;margin-bottom:12px;font-size:11px">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#4a7c3f;display:inline-block"></span>Profitable (LTV:CAC &gt;5×)</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#d97706;display:inline-block"></span>Monitor (3–5×)</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#c0392b;display:inline-block"></span>Question (&lt;3×)</span>
+          </div>
+          <div id="kd-cac-channels"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+        </div>
+
+        <!-- New subscribers chart -->
+        <div class="kd-card">
+          <div class="kd-title">New subscribers — last 6 months</div>
+          <div id="kd-new-chart"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+        </div>
+
+        <!-- Churn chart -->
+        <div class="kd-card">
+          <div class="kd-title">Churn — last 6 months</div>
+          <div id="kd-churn-chart"><span style="font-size:13px;color:var(--muted)">Loading…</span></div>
+        </div>
+      </div>`;
+    loadPerformance();
+    loadCacData();
+  }
+
+  async function loadPerformance(force = false) {
+    if (perfCache && !force) { renderPerfData(perfCache); return; }
+    const el = document.getElementById("perf-content");
+    if (!el) return;
+    el.innerHTML = `<span style="font-size:13px;color:var(--muted)">Loading… (may take up to 60 s)</span>`;
+    try {
+      const r = await fetch("/api/performance");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      perfCache = await r.json();
+      renderPerfData(perfCache);
+    } catch (e) {
+      if (el) el.innerHTML = `<span style="color:red;font-size:13px">Error: ${e.message}</span>`;
+    }
+  }
+
+  function renderPerfData(data) {
+    const el = document.getElementById("perf-content");
+    if (!el) return;
+
+    const channels = [
+      { key: "apollo",   label: "Apollo",       icon: "🔵", color: "#3b6d11" },
+      { key: "linkedin", label: "LinkedIn Ads",  icon: "🔷", color: "#0a66c2" },
+      { key: "organic",  label: "Organic",       icon: "🌿", color: "#2a7a4b" },
+    ];
+
+    function emailListHtml(emails, id) {
+      if (!emails || emails.length === 0) return "";
+      return `
+        <div id="${id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          ${emails.map(e => `
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--text)">${e.name ? `<strong>${escHtml(e.name)}</strong> &nbsp;` : ""}${escHtml(e.email)}</span>
+              <span style="color:var(--muted);white-space:nowrap;margin-left:12px">${e.created}</span>
+            </div>`).join("")}
+        </div>`;
+    }
+
+    const totalHtml = `
+      <div class="kd-card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px">New subscribers since ${data.fromDate}</div>
+            <div style="font-size:40px;font-weight:800;color:var(--text);line-height:1">${data.total}</div>
+          </div>
+          ${data.total > 0 ? `<button id="btn-list-all" onclick="togglePerfList('list-all')" style="font-size:12px;padding:6px 12px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text)">Show emails ▾</button>` : ""}
+        </div>
+        ${emailListHtml(data.allEmails, "list-all")}
+      </div>`;
+
+    const channelHtml = channels.map(ch => {
+      const d = data.channels[ch.key];
+      const listId = "list-" + ch.key;
+      return `
+        <div class="kd-card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px">${ch.icon}</span>
+              <div>
+                <div style="font-size:14px;font-weight:600;color:var(--text)">${ch.label}</div>
+                ${d.note ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${d.note}</div>` : ""}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="font-size:28px;font-weight:800;color:${d.count > 0 ? ch.color : "var(--muted)"}">${d.count}</span>
+              ${d.count > 0 ? `<button id="btn-${listId}" onclick="togglePerfList('${listId}')" style="font-size:12px;padding:5px 10px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text)">Show emails ▾</button>` : ""}
+            </div>
+          </div>
+          ${emailListHtml(d.emails, listId)}
+        </div>`;
+    }).join("");
+
+    el.innerHTML = totalHtml + channelHtml;
+  }
+
+  function togglePerfList(id) {
+    const listEl = document.getElementById(id);
+    const btnEl  = document.getElementById("btn-" + id);
+    if (!listEl) return;
+    const open = listEl.style.display !== "none";
+    listEl.style.display = open ? "none" : "block";
+    if (btnEl) btnEl.textContent = open ? "Show emails ▾" : "Hide emails ▴";
+  }
+
+  // ── CAC Data ──────────────────────────────────────────────────────────────
+  const EUR_SEK = 11;
+  let cacDataCache = null;
+  let cacState = { acqCost: 28230, newSubs: null, churnPct: null };
+
+  async function loadCacData(force = false) {
+    if (cacDataCache && !force) { applyCacData(cacDataCache); return; }
+    const btn = document.getElementById("kd-refresh-btn");
+    if (btn) btn.disabled = true;
+    if (force) { cacState.newSubs = null; cacState.churnPct = null; }
+    try {
+      const r = await fetch("/api/cac-data");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      cacDataCache = await r.json();
+      applyCacData(cacDataCache);
+    } catch (e) {
+      const c = document.getElementById("kd-calc-card");
+      if (c) c.insertAdjacentHTML("beforeend", `<p style="color:#b33;font-size:13px">Error: ${escHtml(e.message)}</p>`);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function applyCacData(data) {
+    let monLabel = "";
+    if (data.stripe) {
+      const s = data.stripe;
+      const lastMon = s.lastCompleteMonthKey || "";
+      monLabel = lastMon
+        ? new Date(lastMon + "-01").toLocaleString("en-GB", { month: "short", year: "numeric" })
+        : "";
+      cacState.newSubs  = s.lastMonthNewSubs;
+      cacState.churnPct = s.lastMonthChurnRate;
+      const elNew   = document.getElementById("kd-newsubs");
+      const elChurn = document.getElementById("kd-churn");
+      if (elNew)   elNew.value   = s.lastMonthNewSubs;
+      if (elChurn) elChurn.value = s.lastMonthChurnRate;
+      const srcEl1 = document.getElementById("kd-newsubs-src");
+      const srcEl2 = document.getElementById("kd-churn-src");
+      if (srcEl1) srcEl1.textContent = "(last 30 days)";
+      if (srcEl2) srcEl2.textContent = "(last 30 days)";
+      const meta = document.getElementById("kd-stripe-meta");
+      if (meta) meta.textContent =
+        `Stripe: ${s.activeCount} active · avg €${s.avgMonthlyEur}/mo · last 30d: ${s.lastMonthNewSubs} new, ${s.lastMonthChurnRate}% churn · 6-mo avg: ${s.avgNewPerMonth} new/mo`;
+      renderNewSubsChart(s.newByMonth);
+      renderChurnChart(s.churnByMonth);
+    }
+    const attrLabel = data.stripe?.attributionFromDate
+      ? `${data.stripe.attributionFromDate} – today (30 days)`
+      : monLabel;
+    if (data.mailchimp) renderAttribution(data.mailchimp, attrLabel);
+    if (data.stripe && data.mailchimp) renderCacChannels(data, attrLabel);
+    if (data.errors?.length) console.warn("[cac-data] errors:", data.errors);
+    updateCacCalc();
+  }
+
+  function updateCacCalc() {
+    const acq     = parseFloat(document.getElementById("kd-acq")?.value)     || 28230;
+    const newSubs = parseFloat(document.getElementById("kd-newsubs")?.value) || 0;
+    const churnP  = parseFloat(document.getElementById("kd-churn")?.value)   || 0;
+    if (!newSubs || !churnP) return;
+    const totalCostSek = acq;
+    const cac = Math.round(totalCostSek / newSubs);
+    const avgPriceSek = cacDataCache?.stripe
+      ? Math.round(cacDataCache.stripe.avgMonthlyEur * EUR_SEK)
+      : 0;
+    const ltv    = churnP > 0 && avgPriceSek > 0 ? Math.round(avgPriceSek / (churnP / 100)) : 0;
+    const ltvCac = cac > 0 && ltv > 0 ? Math.round((ltv / cac) * 10) / 10 : 0;
+    const payback = avgPriceSek > 0 ? Math.round(cac / avgPriceSek) : 0;
+    const fmt = (n) => n > 0 ? n.toLocaleString("en-GB") : "–";
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set("kd-cac",     cac     > 0 ? fmt(cac)     + " kr" : "–");
+    set("kd-ltv",     ltv     > 0 ? fmt(ltv)     + " kr" : "–");
+    set("kd-payback", payback > 0 ? payback       + " months" : "–");
+    const ltvEl = document.getElementById("kd-ltvcac");
+    const subEl = document.getElementById("kd-ltvcac-sub");
+    if (ltvEl) {
+      ltvEl.textContent = ltvCac > 0 ? ltvCac + "×" : "–";
+      ltvEl.className   = "kd-metric-value " + (ltvCac >= 5 ? "kd-metric-green" : ltvCac >= 3 ? "kd-metric-yellow" : ltvCac > 0 ? "kd-metric-red" : "");
+    }
+    if (subEl) subEl.textContent = ltvCac >= 5 ? "Excellent" : ltvCac >= 3 ? "Acceptable" : ltvCac > 0 ? "Below target" : "–";
+  }
+
+  function renderBarChart(elId, entries, color, extraLabelFn) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!entries.length) { el.innerHTML = `<p style="color:var(--muted);font-size:13px">No data.</p>`; return; }
+    const vals   = entries.map(([, v]) => typeof v === "object" ? v.churned : v);
+    const maxVal = Math.max(...vals, 1);
+    const W = 420, H = extraLabelFn ? 150 : 130;
+    const padL = 36, padR = 10, padT = 10, padB = extraLabelFn ? 42 : 28;
+    const cW = W - padL - padR, cH = H - padT - padB;
+    const barW = (cW / entries.length) * 0.55;
+    const xAt  = (i) => padL + (i + 0.5) * (cW / entries.length);
+    const yAt  = (v) => padT + cH - (v / maxVal) * cH;
+    const yTicks = [0, Math.ceil(maxVal / 2), maxVal];
+    const grid = yTicks.map(v => {
+      const y = yAt(v);
+      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#ebebeb" stroke-width="1"/>` +
+             `<text x="${padL - 4}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="#ccc">${v}</text>`;
+    }).join("");
+    const bars = entries.map(([mon, raw], i) => {
+      const val = typeof raw === "object" ? raw.churned : raw;
+      const bH  = Math.max(2, (val / maxVal) * cH);
+      const lbl = mon.slice(5);
+      const extra = extraLabelFn ? extraLabelFn(raw, i) : "";
+      return `<rect x="${xAt(i) - barW / 2}" y="${yAt(val)}" width="${barW}" height="${bH}" fill="${color}" rx="2"/>` +
+             `<text x="${xAt(i)}" y="${H - (extraLabelFn ? 24 : 6)}" text-anchor="middle" font-size="9" fill="#999">${lbl}</text>` +
+             `<text x="${xAt(i)}" y="${yAt(val) - 4}" text-anchor="middle" font-size="9" fill="#666">${val}</text>` +
+             extra;
+    }).join("");
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">${grid}${bars}</svg>`;
+  }
+
+  function renderNewSubsChart(newByMonth) {
+    const entries = Object.entries(newByMonth).sort(([a], [b]) => a.localeCompare(b));
+    renderBarChart("kd-new-chart", entries, "#8b4a4a", null);
+  }
+
+  function renderChurnChart(churnByMonth) {
+    const entries = Object.entries(churnByMonth).sort(([a], [b]) => a.localeCompare(b));
+    const xAt = (i) => { const cW = 420 - 36 - 10; return 36 + (i + 0.5) * (cW / entries.length); };
+    renderBarChart("kd-churn-chart", entries, "#a32d2d", (raw, i) => {
+      const rate = typeof raw === "object" ? raw.churnRate : 0;
+      return `<text x="${xAt(i)}" y="${150 - 10}" text-anchor="middle" font-size="9" fill="#a32d2d">${rate}%</text>`;
+    });
+  }
+
+  function renderCacChannels(data, monLabel) {
+    const el  = document.getElementById("kd-cac-channels");
+    const sub = document.getElementById("kd-cac-channels-subtitle");
+    if (!el) return;
+    const s  = data.stripe;
+    const mc = data.mailchimp;
+    const avgPriceSek = Math.round(s.avgMonthlyEur * EUR_SEK);
+    const churnRate   = s.lastMonthChurnRate / 100;
+    const ltv = churnRate > 0 && avgPriceSek > 0 ? Math.round(avgPriceSek / churnRate) : 0;
+    const TOTAL_COST = 28230;
+    const allChannels = [
+      { label: "Apollo",         count: mc.apolloCount   || 0, color: "#3b6d11" },
+      { label: "LinkedIn ads",   count: mc.linkedinCount || 0, color: "#0a66c2" },
+      { label: "Popups/own ads", count: mc.popupsCount   || 0, color: "#7b3fa0" },
+      { label: "Google ads",     count: mc.googleCount   || 0, color: "#e67e22" },
+      { label: "Organic",        count: mc.organicCount  || 0, color: "#27ae60" },
+      { label: "Unknown",        count: mc.unknownCount  || 0, color: "#95a5a6" },
+    ];
+    const totalConv   = allChannels.reduce((sum, c) => sum + c.count, 0);
+    const overallCac  = totalConv > 0 ? Math.round(TOTAL_COST / totalConv) : 0;
+    const ltvCacRatio = overallCac > 0 && ltv > 0 ? Math.round((ltv / overallCac) * 10) / 10 : 0;
+    const cacColor    = ltvCacRatio >= 5 ? "#4a7c3f" : ltvCacRatio >= 3 ? "#d97706" : ltvCacRatio > 0 ? "#c0392b" : "#999";
+    if (sub) sub.textContent =
+      `Conversions per channel · ${monLabel || "last 30 days"} · Total cost: ${TOTAL_COST.toLocaleString("en-GB")} kr/month`;
+    const maxCount = Math.max(...allChannels.map(c => c.count), 1);
+    const W = 500, rowH = 34, padL = 155, padR = 60, padT = 44, padB = 20;
+    const H = padT + allChannels.length * rowH + padB;
+    const cW = W - padL - padR;
+    const xAt = (v) => padL + (v / maxCount) * cW;
+    const tickStep = maxCount <= 5 ? 1 : maxCount <= 20 ? 5 : 10;
+    const ticks = [];
+    for (let v = 0; v <= maxCount; v += tickStep) ticks.push(v);
+    const grid = ticks.map(v => {
+      const x = xAt(v);
+      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB}" stroke="#ebebeb" stroke-width="1"/>` +
+             `<text x="${x}" y="${H - 6}" text-anchor="middle" font-size="9" fill="#aaa">${v}</text>`;
+    }).join("");
+    const cacLabel = overallCac > 0 ? `${overallCac.toLocaleString("en-GB")} kr/subscriber` : "–";
+    const ltvLabel = ltvCacRatio > 0 ? `  ·  LTV:CAC ${ltvCacRatio}×` : "";
+    const headline = `<text x="${padL}" y="18" font-size="13" font-weight="600" fill="${cacColor}">CAC: ${cacLabel}${ltvLabel}</text>` +
+                     `<text x="${padL}" y="32" font-size="10" fill="#aaa">${TOTAL_COST.toLocaleString("en-GB")} kr ÷ ${totalConv} conv.</text>`;
+    const bars = allChannels.map((ch, i) => {
+      const y = padT + i * rowH;
+      const midY = y + rowH * 0.5;
+      const bW   = ch.count > 0 ? Math.max(2, (ch.count / maxCount) * cW) : 0;
+      const bH   = rowH * 0.52;
+      const textColor = ch.count > 0 ? "#444" : "#bbb";
+      const barEl = ch.count > 0
+        ? `<rect x="${padL}" y="${midY - bH/2}" width="${bW}" height="${bH}" fill="${ch.color}" rx="2" opacity="0.85"/>` +
+          `<text x="${padL + bW + 5}" y="${midY + 4}" font-size="10" fill="${ch.color}">${ch.count}</text>`
+        : `<text x="${padL + 4}" y="${midY + 4}" font-size="10" fill="#ccc" font-style="italic">0 conv.</text>`;
+      return `<text x="${padL - 8}" y="${midY + 4}" text-anchor="end" font-size="11" fill="${textColor}">${escHtml(ch.label)}</text>` + barEl;
+    }).join("");
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">${headline}${grid}${bars}</svg>`;
+  }
+
+  function renderAttribution(mc, monLabel) {
+    const el = document.getElementById("kd-attribution");
+    if (!el) return;
+    const total = mc.paidTotal || 1;
+    const sources = [
+      { label: "Apollo",          count: mc.apolloCount,   color: "#3b6d11" },
+      { label: "LinkedIn ads",    count: mc.linkedinCount, color: "#0a66c2" },
+      { label: "Popups/own ads",  count: mc.popupsCount,   color: "#7b3fa0" },
+      { label: "Google ads",      count: mc.googleCount,   color: "#e37400" },
+      { label: "Organic",         count: mc.organicCount,  color: "#6b8f3e" },
+      { label: "Unknown",         count: mc.unknownCount,  color: "#ccc"    },
+    ];
+    el.innerHTML = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${total} new subscribers${monLabel ? " · " + monLabel : ""}</div>
+      ${sources.map(s => {
+        const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+        return `<div class="kd-bar-row">
+          <div class="kd-bar-label">${escHtml(s.label)}</div>
+          <div class="kd-bar-track"><div class="kd-bar-fill" style="width:${pct}%;background:${s.color}"></div></div>
+          <div class="kd-bar-count">${s.count}</div>
+        </div>`;
+      }).join("")}`;
+  }
+
+  // Boot
+  renderOverview();
+</script>
+</body>
+</html>
