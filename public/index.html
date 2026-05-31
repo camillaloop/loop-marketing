@@ -672,6 +672,14 @@
       const d     = HIST_SAMPLE[id];
       renderNewSubsChartTo(`hist-${id}-new`,   d.newByMonth,   color);
       renderChurnChartTo(  `hist-${id}-churn`, d.churnByMonth);
+      [`hist-${id}-new`, `hist-${id}-churn`].forEach(elId => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        const lbl = document.createElement("div");
+        lbl.style.cssText = "font-size:10px;color:#bbb;font-style:italic;margin-top:3px";
+        lbl.textContent = "exempelstapel – lägg in rätt";
+        el.appendChild(lbl);
+      });
     });
 
     // Load real data for VC
