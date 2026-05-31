@@ -350,6 +350,35 @@
     .att-ch-name { width: 36%; }
     .att-ch-val  { text-align: right; color: var(--muted); width: 16%; }
 
+    /* ── Agents page ── */
+    .agents-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      max-width: 560px;
+    }
+    .agents-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .agents-head {
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 14px 22px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .agents-row td {
+      padding: 12px 22px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .agents-row:last-child td { border-bottom: none; }
+    .agents-name { width: 75%; }
+    .agents-num  { text-align: right; color: var(--muted); font-weight: 600; }
+
     /* ── Historic data ── */
     .hist-section {
       margin-bottom: 44px;
@@ -407,6 +436,7 @@
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
     <a class="nav-link" onclick="switchTab('attract', this)">Attract</a>
     <a class="nav-link" onclick="switchTab('engage', this)">Engage</a>
+    <a class="nav-link" onclick="switchTab('agents', this)">Agents</a>
   </nav>
 </aside>
 
@@ -427,6 +457,7 @@
     "historic-data": "Historic data",
     "attract":       "Attract",
     "engage":        "Engage",
+    "agents":        "Agents",
   };
 
   function switchTab(tab, el) {
@@ -438,6 +469,7 @@
     if (tab === "historic-data") renderHistoricData();
     if (tab === "attract")       renderAttractPage();
     if (tab === "engage")        renderEngagePage();
+    if (tab === "agents")        renderAgentsPage();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -1292,6 +1324,42 @@
         <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Engage</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Sold subscriptions per week — all four loops</div>
         <div class="ov-grid">${cards}</div>
+      </div>`;
+  }
+
+  // ── Agents page ───────────────────────────────────────────────────────────────
+  const AGENTS_DATA = [
+    { name: "Apollo agent",                      number: "–" },
+    { name: "E-mail campaign agent",             number: "–" },
+    { name: "Personal e-mail with offer agent",  number: "–" },
+    { name: "Active reader offer agent",         number: "–" },
+  ];
+
+  function renderAgentsPage() {
+    const el = document.getElementById("main-content");
+    if (!el) return;
+
+    const rows = AGENTS_DATA.map(a => `
+      <tr class="agents-row">
+        <td class="agents-name">${escHtml(a.name)}</td>
+        <td class="agents-num">${escHtml(a.number)}</td>
+      </tr>`).join("");
+
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Agents</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Number of runs per agent</div>
+        <div class="agents-card">
+          <table class="agents-table">
+            <thead>
+              <tr>
+                <th class="agents-head agents-name">Agent</th>
+                <th class="agents-head agents-num">Number</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`;
   }
 
