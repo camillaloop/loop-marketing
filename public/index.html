@@ -1247,20 +1247,32 @@
            ]},
   };
 
+  // Channel name → ID suffix used for live IL cells
+  const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic" };
+
   function renderAttractPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
 
     const cards = LOOPS.map(loop => {
-      const d = ATTRACT_DATA[loop.id] || {};
-      const rows = (d.channels || []).map(ch => `
-        <tr class="att-ch-row">
-          <td class="att-ch-name">${escHtml(ch.name)}</td>
-          <td class="att-ch-val">${escHtml(ch.number)}</td>
-          <td class="att-ch-val">${escHtml(ch.cost)}</td>
-          <td class="att-ch-val">${escHtml(ch.converted)}</td>
-          <td class="att-ch-val">${escHtml(ch.cac)}</td>
-        </tr>`).join("");
+      const d    = ATTRACT_DATA[loop.id] || {};
+      const isIl = loop.id === "il";
+
+      const rows = (d.channels || []).map(ch => {
+        const chId  = ATTRACT_CH_IDS[ch.name];
+        const numId = isIl && chId ? ` id="att-il-${chId}"` : "";
+        return `
+          <tr class="att-ch-row">
+            <td class="att-ch-name">${escHtml(ch.name)}</td>
+            <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
+            <td class="att-ch-val">${escHtml(ch.cost)}</td>
+            <td class="att-ch-val">${escHtml(ch.converted)}</td>
+            <td class="att-ch-val">${escHtml(ch.cac)}</td>
+          </tr>`;
+      }).join("");
+
+      const totalId    = isIl ? ' id="att-il-total"'    : "";
+      const deliveryId = isIl ? ' id="att-il-delivered"' : "";
 
       return `
         <div class="ov-card">
@@ -1271,10 +1283,10 @@
           <div class="att-card-body">
             <div class="att-email-goal">
               Goal e-mail addresses:
-              <span class="att-email-count">${escHtml(d.emailActual)} / ${escHtml(d.emailGoal)}</span>
+              <span class="att-email-count"><span${totalId}>${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">per week</span>
             </div>
-            <div class="att-apollo-row">Delivered by Apollo agent: <strong>${escHtml(d.apolloDelivered)}</strong></div>
+            <div class="att-apollo-row">Delivered by Apollo agent: <strong${deliveryId}>${escHtml(d.apolloDelivered)}</strong></div>
             <table class="att-ch-table">
               <thead>
                 <tr>
@@ -1297,6 +1309,47 @@
         <div style="font-size:13px;color:var(--muted);margin-bottom:32px">E-mail addresses collected per week — all four loops</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
+
+    loadAttractData();
+  }
+
+  let attractCache = null;
+
+  async function loadAttractData(force = false) {
+    if (attractCache && !force) { renderAttractData(attractCache); return; }
+
+    ["apollo", "linkedin", "organic"].forEach(ch => {
+      const cel = document.getElementById(`att-il-${ch}`);
+      if (cel) cel.textContent = "…";
+    });
+    const totalEl = document.getElementById("att-il-total");
+    if (totalEl) totalEl.textContent = "…";
+
+    try {
+      const r = await fetch("/api/attract");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      attractCache = await r.json();
+      renderAttractData(attractCache);
+    } catch (e) {
+      ["apollo", "linkedin", "organic"].forEach(ch => {
+        const cel = document.getElementById(`att-il-${ch}`);
+        if (cel) cel.textContent = "err";
+      });
+      console.error("[attract]", e);
+    }
+  }
+
+  function renderAttractData(data) {
+    if (!data) return;
+    const set = (id, val) => {
+      const cel = document.getElementById(id);
+      if (cel) cel.textContent = String(val);
+    };
+    set("att-il-total",     data.total);
+    set("att-il-apollo",    data.channels.apollo);
+    set("att-il-delivered", data.channels.apollo);
+    set("att-il-linkedin",  data.channels.linkedin);
+    set("att-il-organic",   data.channels.organic);
   }
 
   // ── Engage page ──────────────────────────────────────────────────────────────
