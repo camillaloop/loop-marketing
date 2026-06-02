@@ -3,8 +3,9 @@
  * POST /api/campaign-mailchimp
  *
  * Skapar ett Mailchimp-kampanjutkast för valfri loop.
- * Body: { subject, previewText, intro, loop, editorName, editorEmail, editorImageUrl }
- * loop: { name, color, logo_url, website_url, from_name, reply_to, mailchimp_list_id }
+ * Body: { subject, previewText, intro, loop, segment, editorName, editorEmail, editorImageUrl }
+ * loop: { name, color, logo_url, website_url, from_name, reply_to, mailchimp_list_id, segment_gratis_id, segment_betalande_id }
+ * segment: "alla" | "gratis" | "betalande"
  */
 
 module.exports = async function handler(req, res) {
@@ -15,7 +16,7 @@ module.exports = async function handler(req, res) {
   const { MAILCHIMP_API_KEY } = process.env;
   if (!MAILCHIMP_API_KEY) return res.status(500).json({ error: "MAILCHIMP_API_KEY missing" });
 
-  const { subject, previewText, intro, loop, editorName, editorEmail, editorImageUrl } = req.body || {};
+  const { subject, previewText, intro, loop, segment = "alla", editorName, editorEmail, editorImageUrl } = req.body || {};
   if (!subject || !intro || !editorName) {
     return res.status(400).json({ error: "subject, intro och editorName krävs" });
   }
@@ -56,6 +57,14 @@ module.exports = async function handler(req, res) {
   const loopFrom    = loop?.from_name    || "Industrial Loop";
   const loopReplyTo = loop?.reply_to     || "info@loop.se";
   const loopListId  = loop?.mailchimp_list_id || process.env.MAILCHIMP_IND_LIST_ID || process.env.MAILCHIMP_LIST_ID || "";
+
+  // Segment-mottagare
+  let recipients = { list_id: loopListId };
+  if (segment === "gratis" && loop?.segment_gratis_id) {
+    recipients = { list_id: loopListId, segment_opts: { saved_segment_id: parseInt(loop.segment_gratis_id, 10) } };
+  } else if (segment === "betalande" && loop?.segment_betalande_id) {
+    recipients = { list_id: loopListId, segment_opts: { saved_segment_id: parseInt(loop.segment_betalande_id, 10) } };
+  }
 
   const today = new Date().toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
   const campaignTitle = `Kampanjutskick: ${loopName} ${today}`;
@@ -198,7 +207,7 @@ module.exports = async function handler(req, res) {
       method: "POST",
       body: JSON.stringify({
         type: "regular",
-        recipients: { list_id: loopListId },
+        recipients,
         settings: {
           subject_line: subject,
           preview_text: previewText || subject,

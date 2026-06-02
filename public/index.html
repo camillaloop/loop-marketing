@@ -1704,6 +1704,17 @@
             <span style="font-size:11px;color:var(--muted)">Markera text och klicka B för fetstil eller 🔗 Länk för att länka.</span>
           </div>
 
+          <!-- Segment (visas bara om loopen har segment) -->
+          <div id="cc-segment-wrap" style="display:${loops[0]?.segment_gratis_id ? 'flex' : 'none'};flex-direction:column;gap:6px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Mottagare</label>
+            <select id="cc-segment"
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff">
+              <option value="alla">Alla</option>
+              <option value="gratis">Gratis</option>
+              <option value="betalande">Betalande</option>
+            </select>
+          </div>
+
           <!-- Byline -->
           <div style="display:flex;flex-direction:column;gap:6px">
             <label style="font-size:13px;font-weight:600;color:var(--text)">Byline (avsändare)</label>
@@ -1941,8 +1952,10 @@
     const loop = ccLoops[idx];
     const editors = loop?.editors || [];
     const sel = document.getElementById("cc-editor");
-    if (!sel) return;
-    sel.innerHTML = editors.map((e, i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("");
+    if (sel) sel.innerHTML = editors.map((e, i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("");
+    // Visa/dölj segment-väljare
+    const segWrap = document.getElementById("cc-segment-wrap");
+    if (segWrap) segWrap.style.display = loop?.segment_gratis_id ? "flex" : "none";
   }
 
   function ccInsertBold() {
@@ -1979,6 +1992,7 @@
     const intro    = document.getElementById("cc-intro").value.trim();
     const editorIdx= parseInt(document.getElementById("cc-editor").value || "0", 10);
     const editor   = loop?.editors?.[editorIdx];
+    const segment  = document.getElementById("cc-segment")?.value || "alla";
     const btn      = document.getElementById("cc-btn");
     const result   = document.getElementById("cc-result");
 
@@ -2000,7 +2014,8 @@
           subject,
           previewText: preheader,
           intro,
-          loop: { name: loop.name, color: loop.color, logo_url: loop.logo_url, website_url: loop.website_url, from_name: loop.from_name, reply_to: loop.reply_to, mailchimp_list_id: loop.mailchimp_list_id },
+          segment,
+          loop: { name: loop.name, color: loop.color, logo_url: loop.logo_url, website_url: loop.website_url, from_name: loop.from_name, reply_to: loop.reply_to, mailchimp_list_id: loop.mailchimp_list_id, segment_gratis_id: loop.segment_gratis_id, segment_betalande_id: loop.segment_betalande_id },
           editorName: editor?.name || "",
           editorEmail: editor?.email || "",
           editorImageUrl: editor?.image_url || "",
