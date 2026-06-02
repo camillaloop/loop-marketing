@@ -1819,7 +1819,7 @@
               style="font-size:11px;padding:2px 10px;border:1px solid var(--border);border-radius:5px;background:var(--sidebar-bg);cursor:pointer;font-family:inherit">+ Lägg till</button>
           </div>
           <div id="clf-editors">
-            ${(loop.editors || []).map(e => ccEditorRow(e)).join("")}
+            ${(loop.editors || []).map(e => ccEditorRow(e, loop.id)).join("")}
           </div>
           <div id="clf-editor-form" style="display:none;margin-top:10px"></div>
         </div>` : ""}
@@ -1837,11 +1837,11 @@
       </div>`;
   }
 
-  function ccEditorRow(editor) {
+  function ccEditorRow(editor, loopId) {
     return `
-      <div id="clf-editor-row-${editor.id}" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:var(--sidebar-bg)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:var(--sidebar-bg)">
         <span style="font-size:12px">${editor.name} <span style="color:var(--muted)">(${editor.email})</span></span>
-        <button onclick="ccDeleteEditor('${editor.id}')"
+        <button onclick="ccUnlinkEditor('${editor.link_id}', '${loopId}')"
           style="font-size:11px;padding:2px 8px;border:1px solid #fca5a5;border-radius:4px;background:#fff0f0;cursor:pointer;color:#dc2626;font-family:inherit">Ta bort</button>
       </div>`;
   }
@@ -1865,19 +1865,31 @@
     document.getElementById("cc-admin-form").innerHTML = "";
   }
 
-  function ccShowAddEditor(loopId) {
+  async function ccShowAddEditor(loopId) {
     const f = document.getElementById("clf-editor-form");
     f.style.display = "block";
+    const allEditors = await fetch("/api/editors").then(r => r.json());
+    const currentIds = new Set((ccLoops.find(l => l.id === loopId)?.editors || []).map(e => e.id));
+    const available = allEditors.filter(e => !currentIds.has(e.id));
     f.innerHTML = `
       <div style="border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--sidebar-bg)">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-          <input id="cef-name" placeholder="Namn" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
-          <input id="cef-email" placeholder="mejl@loop.se" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px">Koppla befintlig redaktör</div>
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <select id="cef-editor-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;background:#fff">
+            ${available.length ? available.map(e => `<option value="${e.id}">${e.name} (${e.email})</option>`).join("") : '<option disabled>Inga fler redaktörer att lägga till</option>'}
+          </select>
+          <button onclick="ccLinkEditor('${loopId}')"
+            style="padding:5px 14px;background:#e4ffc2;border:1px solid #bef08b;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Koppla</button>
         </div>
-        <input id="cef-image" placeholder="Bild URL" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px">Eller skapa ny redaktör</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <input id="cef-new-name" placeholder="Namn" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+          <input id="cef-new-email" placeholder="mejl@loop.se" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+        </div>
+        <input id="cef-new-image" placeholder="Bild URL" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;margin-bottom:8px;box-sizing:border-box">
         <div style="display:flex;gap:6px">
-          <button onclick="ccCreateEditor('${loopId}')"
-            style="padding:5px 14px;background:#e4ffc2;border:1px solid #bef08b;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Lägg till</button>
+          <button onclick="ccCreateNewEditor()"
+            style="padding:5px 14px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:inherit">Skapa &amp; lägg till i listan</button>
           <button onclick="document.getElementById('clf-editor-form').style.display='none'"
             style="padding:5px 14px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:inherit">Avbryt</button>
         </div>
@@ -1922,29 +1934,44 @@
     renderCreateCampaignPage();
   }
 
-  async function ccCreateEditor(loopId) {
-    const body = {
-      loop_id: loopId,
-      name: document.getElementById("cef-name").value.trim(),
-      email: document.getElementById("cef-email").value.trim(),
-      image_url: document.getElementById("cef-image").value.trim(),
-    };
-    if (!body.name) return alert("Namn krävs");
-    await fetch("/api/loop-editors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  async function ccLinkEditor(loopId) {
+    const editorId = document.getElementById("cef-editor-select")?.value;
+    if (!editorId) return alert("Välj en redaktör");
+    await fetch("/api/editors?action=link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loop_id: loopId, editor_id: editorId }),
+    });
     ccLoops = [];
     renderCreateCampaignPage();
-    // Återöppna edit-formen för samma loop
     setTimeout(() => ccShowEditLoop(loopId), 300);
   }
 
-  async function ccDeleteEditor(id) {
-    if (!confirm("Ta bort denna redaktör?")) return;
-    const editor = ccLoops.flatMap(l => l.editors || []).find(e => e.id === id);
-    const loopId = editor?.loop_id;
-    await fetch(`/api/loop-editors?id=${id}`, { method: "DELETE" });
+  async function ccUnlinkEditor(linkId, loopId) {
+    if (!confirm("Ta bort redaktören från denna loop?")) return;
+    await fetch(`/api/editors?action=unlink&id=${linkId}`, { method: "DELETE" });
     ccLoops = [];
     renderCreateCampaignPage();
-    if (loopId) setTimeout(() => ccShowEditLoop(loopId), 300);
+    setTimeout(() => ccShowEditLoop(loopId), 300);
+  }
+
+  async function ccCreateNewEditor() {
+    const name  = document.getElementById("cef-new-name")?.value.trim();
+    const email = document.getElementById("cef-new-email")?.value.trim();
+    const image = document.getElementById("cef-new-image")?.value.trim();
+    if (!name) return alert("Namn krävs");
+    await fetch("/api/editors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, image_url: image }),
+    });
+    // Uppdatera alla-redaktörer-listan i dropdownen
+    const allEditors = await fetch("/api/editors").then(r => r.json());
+    const sel = document.getElementById("cef-editor-select");
+    if (sel) sel.innerHTML = allEditors.map(e => `<option value="${e.id}">${e.name} (${e.email})</option>`).join("");
+    document.getElementById("cef-new-name").value = "";
+    document.getElementById("cef-new-email").value = "";
+    document.getElementById("cef-new-image").value = "";
   }
 
   function ccOnLoopChange() {
