@@ -2067,25 +2067,26 @@
       fetch("/api/loops").then(r => r.json()),
     ]);
 
+    window._edEditors = editors;
+    window._edLoops   = loops;
+
     function editorCard(e) {
-      const linkedLoops = loops.filter(l => (l.editors || []).some(le => le.id === e.id));
-      const loopBadges = linkedLoops.map(l =>
-        `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${l.color};color:#111;margin-right:4px">${l.name}</span>`
-      ).join("") || `<span style="font-size:11px;color:var(--muted)">Ingen loop</span>`;
+      const linkedIds = new Set(loops.filter(l => (l.editors||[]).some(le => le.id === e.id)).map(l => l.id));
+      const loopCheckboxes = loops.map(l => `
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:6px;background:${l.color}33;border:1px solid ${l.color}">
+          <input type="checkbox" data-editor-id="${e.id}" data-loop-id="${l.id}" ${linkedIds.has(l.id) ? "checked" : ""}
+            onchange="edToggleLoop(this)" style="cursor:pointer"> ${l.name}
+        </label>`).join("");
 
       return `
-        <div id="editor-card-${e.id}" style="display:flex;align-items:center;gap:14px;padding:12px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--sidebar-bg)">
-          ${e.image_url ? `<img src="${e.image_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : `<div style="width:36px;height:36px;border-radius:50%;background:var(--border);flex-shrink:0"></div>`}
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--sidebar-bg)">
+          ${e.image_url
+            ? `<img src="${e.image_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
+            : `<div style="width:40px;height:40px;border-radius:50%;background:var(--border);flex-shrink:0"></div>`}
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600">${e.name}</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${e.email}</div>
-            <div>${loopBadges}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button onclick="edShowEdit('${e.id}')"
-              style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;font-family:inherit">Redigera</button>
-            <button onclick="edDelete('${e.id}')"
-              style="font-size:11px;padding:3px 10px;border:1px solid #fca5a5;border-radius:5px;background:#fff0f0;cursor:pointer;color:#dc2626;font-family:inherit">Radera</button>
+            <div style="font-size:13px;font-weight:600;margin-bottom:2px">${e.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${e.email}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">${loopCheckboxes}</div>
           </div>
         </div>`;
     }
@@ -2093,146 +2094,38 @@
     el.innerHTML = `
       <div style="padding:24px 0 8px;max-width:680px">
         <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Editors</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Hantera redaktörer och koppla dem till loopar.</div>
-
-        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-          <button onclick="edShowNew()"
-            style="padding:7px 18px;background:#e4ffc2;border:1px solid #bef08b;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
-            + Ny redaktör
-          </button>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">
+          Koppla redaktörer till loopar. Redaktörerna läggs till direkt i Supabase.
         </div>
-
-        <div id="ed-form" style="display:none;margin-bottom:16px"></div>
-        <div id="ed-list">${editors.map(e => editorCard(e)).join("") || '<div style="font-size:13px;color:var(--muted)">Inga redaktörer ännu.</div>'}</div>
+        <div id="ed-list">
+          ${editors.length
+            ? editors.map(e => editorCard(e)).join("")
+            : '<div style="font-size:13px;color:var(--muted)">Inga redaktörer i databasen än.</div>'}
+        </div>
       </div>`;
+  }
 
-    // Spara lokalt för edit-åtgärder
+  async function edToggleLoop(cb) {
+    const editorId = cb.dataset.editorId;
+    const loopId   = cb.dataset.loopId;
+    if (cb.checked) {
+      await fetch("/api/editors?action=link", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loop_id: loopId, editor_id: editorId }),
+      });
+    } else {
+      const loop   = (window._edLoops || []).find(l => l.id === loopId);
+      const linkId = loop?.editors?.find(e => e.id === editorId)?.link_id;
+      if (linkId) await fetch(`/api/editors?action=unlink&id=${linkId}`, { method: "DELETE" });
+    }
+    ccLoops = [];
+    // Uppdatera lokalt cache utan full re-render
+    const [editors, loops] = await Promise.all([
+      fetch("/api/editors").then(r => r.json()),
+      fetch("/api/loops").then(r => r.json()),
+    ]);
     window._edEditors = editors;
     window._edLoops   = loops;
-  }
-
-  function edForm(e = null) {
-    const loops = window._edLoops || [];
-    const linkedIds = new Set(loops.filter(l => (l.editors||[]).some(le => le.id === e?.id)).map(l => l.id));
-    return `
-      <div style="border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff;margin-bottom:4px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:14px">${e ? "Redigera redaktör" : "Ny redaktör"}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <label style="font-size:11px;color:var(--muted)">Namn</label>
-            <input id="ed-name" value="${e?.name || ""}" placeholder="Förnamn Efternamn"
-              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <label style="font-size:11px;color:var(--muted)">E-post</label>
-            <input id="ed-email" value="${e?.email || ""}" placeholder="namn@loop.se"
-              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
-          <label style="font-size:11px;color:var(--muted)">Bild URL</label>
-          <input id="ed-image" value="${e?.image_url || ""}" placeholder="https://..."
-            style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;width:100%;box-sizing:border-box">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-          <label style="font-size:11px;color:var(--muted)">Koppla till loopar</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${loops.map(l => `
-              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:6px;background:${l.color}22;border:1px solid ${l.color}">
-                <input type="checkbox" data-loop-id="${l.id}" ${linkedIds.has(l.id) ? "checked" : ""}
-                  style="cursor:pointer"> ${l.name}
-              </label>`).join("")}
-          </div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="${e ? `edSave('${e.id}')` : "edCreate()"}"
-            style="padding:7px 18px;background:#e4ffc2;border:1px solid #bef08b;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
-            ${e ? "Spara" : "Skapa"}
-          </button>
-          <button onclick="edCloseForm()"
-            style="padding:7px 18px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">
-            Avbryt
-          </button>
-        </div>
-      </div>`;
-  }
-
-  function edShowNew() {
-    document.getElementById("ed-form").style.display = "block";
-    document.getElementById("ed-form").innerHTML = edForm();
-  }
-
-  function edShowEdit(id) {
-    const e = (window._edEditors || []).find(x => x.id === id);
-    document.getElementById("ed-form").style.display = "block";
-    document.getElementById("ed-form").innerHTML = edForm(e);
-  }
-
-  function edCloseForm() {
-    document.getElementById("ed-form").style.display = "none";
-  }
-
-  async function edCreate() {
-    const body = {
-      name:      document.getElementById("ed-name").value.trim(),
-      email:     document.getElementById("ed-email").value.trim(),
-      image_url: document.getElementById("ed-image").value.trim(),
-    };
-    if (!body.name) return alert("Namn krävs");
-    const newEditor = await fetch("/api/editors", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }).then(r => r.json());
-    // Koppla till valda loopar
-    const checks = document.querySelectorAll("[data-loop-id]");
-    for (const cb of checks) {
-      if (cb.checked) {
-        await fetch("/api/editors?action=link", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ loop_id: cb.dataset.loopId, editor_id: newEditor.id }),
-        });
-      }
-    }
-    ccLoops = []; // Rensa loop-cache
-    renderEditorsPage();
-  }
-
-  async function edSave(id) {
-    const body = {
-      name:      document.getElementById("ed-name").value.trim(),
-      email:     document.getElementById("ed-email").value.trim(),
-      image_url: document.getElementById("ed-image").value.trim(),
-    };
-    await fetch(`/api/editors?id=${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
-    // Uppdatera loop-kopplingar
-    const loops = window._edLoops || [];
-    const currentLinked = loops.filter(l => (l.editors||[]).some(e => e.id === id));
-    const currentIds = new Set(currentLinked.map(l => l.id));
-    const checks = document.querySelectorAll("[data-loop-id]");
-    for (const cb of checks) {
-      const loopId = cb.dataset.loopId;
-      const wasLinked = currentIds.has(loopId);
-      if (cb.checked && !wasLinked) {
-        await fetch("/api/editors?action=link", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ loop_id: loopId, editor_id: id }),
-        });
-      } else if (!cb.checked && wasLinked) {
-        const loop = loops.find(l => l.id === loopId);
-        const linkId = loop?.editors?.find(e => e.id === id)?.link_id;
-        if (linkId) await fetch(`/api/editors?action=unlink&id=${linkId}`, { method: "DELETE" });
-      }
-    }
-    ccLoops = [];
-    renderEditorsPage();
-  }
-
-  async function edDelete(id) {
-    if (!confirm("Radera redaktören helt? Kopplingarna till loopar tas också bort.")) return;
-    await fetch(`/api/editors?id=${id}`, { method: "DELETE" });
-    ccLoops = [];
-    renderEditorsPage();
   }
 
   // Boot
