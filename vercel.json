@@ -2,6 +2,7 @@
   "functions": {
     "api/performance.js": { "maxDuration": 300 },
     "api/cac-data.js":    { "maxDuration": 300 },
-    "api/attract.js":     { "maxDuration": 60 }
+    "api/attract.js":             { "maxDuration": 60 },
+    "api/campaign-mailchimp.js":  { "maxDuration": 60 }
   }
 }

@@ -488,6 +488,7 @@
     <a class="nav-link" onclick="switchTab('agents', this)">Agents</a>
     <a class="nav-link" onclick="switchTab('email-campaigns', this)">E-mail campaigns</a>
     <a class="nav-link" onclick="switchTab('linkedin-campaigns', this)">LinkedIn campaigns</a>
+    <a class="nav-link" onclick="switchTab('create-campaign', this)">Create campaign</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
   </nav>
 </aside>
@@ -511,6 +512,7 @@
     "agents":          "Agents",
     "email-campaigns":    "E-mail campaigns",
     "linkedin-campaigns": "LinkedIn campaigns",
+    "create-campaign":    "Create campaign",
     "historic-data":      "Historic data",
   };
 
@@ -525,6 +527,7 @@
     if (tab === "agents")          renderAgentsPage();
     if (tab === "email-campaigns")    renderEmailCampaignsPage();
     if (tab === "linkedin-campaigns") renderLinkedInCampaignsPage();
+    if (tab === "create-campaign")    renderCreateCampaignPage();
     if (tab === "historic-data")      renderHistoricData();
   }
 
@@ -1630,6 +1633,136 @@
         <div class="ov-grid">${cards}</div>
         <p style="font-size:11px;color:var(--muted);font-style:italic;margin-top:4px">Exempeldata – lägg in rätt</p>
       </div>`;
+  }
+
+  // ── Create campaign ──────────────────────────────────────────────────────
+  const CAMPAIGN_EDITORS = [
+    { name: "Camilla Bergman",  email: "camilla@loop.se",  imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/a93fb1b7-f27d-d5aa-f88a-5f7f602bf174.png" },
+    { name: "Andreas Jennische",email: "andreas@loop.se",  imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/903715d9-8891-c5d4-be8b-d3902622bd3d.png" },
+    { name: "Jenny Kjellén",    email: "jenny@loop.se",    imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/a5912c23-472c-34a8-d789-bfd43f0b2559.png" },
+    { name: "Johann Bernövall", email: "johann@loop.se",   imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/9656a354-d822-b636-20c9-30df9c2a411a.png" },
+  ];
+
+  function renderCreateCampaignPage() {
+    const el = document.getElementById("main-content");
+    el.innerHTML = `
+      <div style="padding:24px 0 8px;max-width:620px">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Create campaign</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Skapa ett Mailchimp-utkast för Industrial Loop med header, intro och footer.</div>
+
+        <div style="display:flex;flex-direction:column;gap:18px">
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Ämnesrad</label>
+            <input id="cc-subject" type="text" placeholder="t.ex. Viktig uppdatering från Industrial Loop"
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%">
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Preheader-text <span style="font-weight:400;color:var(--muted)">(valfri)</span></label>
+            <input id="cc-preheader" type="text" placeholder="Kort sammanfattning som visas i inkorgen"
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%">
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <label style="font-size:13px;font-weight:600;color:var(--text)">Introtext</label>
+              <div style="display:flex;gap:6px">
+                <button onclick="ccInsertBold()" style="font-size:12px;padding:3px 10px;border:1px solid var(--border);border-radius:5px;background:var(--sidebar-bg);cursor:pointer;font-family:inherit"><strong>B</strong></button>
+                <button onclick="ccInsertLink()" style="font-size:12px;padding:3px 10px;border:1px solid var(--border);border-radius:5px;background:var(--sidebar-bg);cursor:pointer;font-family:inherit">🔗 Länk</button>
+              </div>
+            </div>
+            <textarea id="cc-intro" rows="8" placeholder="Skriv din text här. Varje ny rad blir ett nytt stycke."
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;resize:vertical;line-height:1.6"></textarea>
+            <span style="font-size:11px;color:var(--muted)">Markera text och klicka B för fetstil eller 🔗 Länk för att länka.</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Avsändare (byline)</label>
+            <select id="cc-editor" style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff">
+              ${CAMPAIGN_EDITORS.map((e,i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("")}
+            </select>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <button onclick="ccSubmit()" id="cc-btn"
+              style="padding:10px 22px;background:#e4ffc2;border:1px solid #bef08b;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+              ✓ Skapa Mailchimp-utkast
+            </button>
+          </div>
+
+          <div id="cc-result" style="display:none"></div>
+        </div>
+      </div>`;
+  }
+
+  function ccInsertBold() {
+    const ta = document.getElementById("cc-intro");
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const val = ta.value;
+    const selected = val.slice(start, end) || "fetstil";
+    const insert = `**${selected}**`;
+    ta.value = val.slice(0, start) + insert + val.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + 2, start + 2 + selected.length);
+  }
+
+  function ccInsertLink() {
+    const ta = document.getElementById("cc-intro");
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const val = ta.value;
+    const selected = val.slice(start, end);
+    const url = prompt("Klistra in URL:");
+    if (!url) return;
+    const insert = `[${selected || "länktext"}](${url})`;
+    ta.value = val.slice(0, start) + insert + val.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start, start + insert.length);
+  }
+
+  async function ccSubmit() {
+    const subject  = document.getElementById("cc-subject").value.trim();
+    const preheader= document.getElementById("cc-preheader").value.trim();
+    const intro    = document.getElementById("cc-intro").value.trim();
+    const editorIdx= parseInt(document.getElementById("cc-editor").value, 10);
+    const editor   = CAMPAIGN_EDITORS[editorIdx];
+    const btn      = document.getElementById("cc-btn");
+    const result   = document.getElementById("cc-result");
+
+    if (!subject || !intro) {
+      result.style.display = "block";
+      result.innerHTML = `<div style="padding:12px 16px;border-radius:8px;background:#fff0f0;border:1px solid #fca5a5;font-size:13px;color:#dc2626">Fyll i ämnesrad och introtext.</div>`;
+      return;
+    }
+
+    btn.textContent = "Skapar utkast…";
+    btn.disabled = true;
+    result.style.display = "none";
+
+    try {
+      const res = await fetch("/api/campaign-mailchimp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, previewText: preheader, intro, editorName: editor.name, editorEmail: editor.email, editorImageUrl: editor.imageUrl }),
+      });
+      const data = await res.json();
+      result.style.display = "block";
+      if (data.editUrl) {
+        result.innerHTML = `<div style="padding:12px 16px;border-radius:8px;background:#f0fff4;border:1px solid #86efac;font-size:13px;color:#16a34a">
+          ✅ Utkastet är skapat! <a href="${data.editUrl}" target="_blank" rel="noreferrer" style="color:#2563eb;text-decoration:underline;margin-left:8px">Öppna i Mailchimp →</a>
+        </div>`;
+      } else {
+        result.innerHTML = `<div style="padding:12px 16px;border-radius:8px;background:#fff0f0;border:1px solid #fca5a5;font-size:13px;color:#dc2626">❌ ${data.error || "Något gick fel"}</div>`;
+      }
+    } catch(e) {
+      result.style.display = "block";
+      result.innerHTML = `<div style="padding:12px 16px;border-radius:8px;background:#fff0f0;border:1px solid #fca5a5;font-size:13px;color:#dc2626">❌ Något gick fel – försök igen.</div>`;
+    } finally {
+      btn.textContent = "✓ Skapa Mailchimp-utkast";
+      btn.disabled = false;
+    }
   }
 
   // Boot
