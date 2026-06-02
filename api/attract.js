@@ -1,4 +1,4 @@
-/**
+/**// v2
  * api/attract.js
  * GET /api/attract
  *
