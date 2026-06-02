@@ -1636,34 +1636,61 @@
   }
 
   // ── Create campaign ──────────────────────────────────────────────────────
-  const CAMPAIGN_EDITORS = [
-    { name: "Camilla Bergman",  email: "camilla@loop.se",  imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/a93fb1b7-f27d-d5aa-f88a-5f7f602bf174.png" },
-    { name: "Andreas Jennische",email: "andreas@loop.se",  imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/903715d9-8891-c5d4-be8b-d3902622bd3d.png" },
-    { name: "Jenny Kjellén",    email: "jenny@loop.se",    imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/a5912c23-472c-34a8-d789-bfd43f0b2559.png" },
-    { name: "Johann Bernövall", email: "johann@loop.se",   imageUrl: "https://mcusercontent.com/46f8b3dcdd581118cad2f80ee/images/9656a354-d822-b636-20c9-30df9c2a411a.png" },
-  ];
+  let ccLoops = []; // cache
 
-  function renderCreateCampaignPage() {
+  async function ccLoadLoops() {
+    if (ccLoops.length) return ccLoops;
+    const res = await fetch("/api/loops");
+    ccLoops = await res.json();
+    return ccLoops;
+  }
+
+  async function renderCreateCampaignPage() {
     const el = document.getElementById("main-content");
+    el.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:24px 0">Laddar loopar…</div>`;
+    ccLoops = [];
+    const loops = await ccLoadLoops().catch(() => []);
+
+    const loopOptions = loops.map((l, i) =>
+      `<option value="${i}" style="background:${l.color}">${l.name}</option>`
+    ).join("");
+
+    const firstEditors = loops[0]?.editors || [];
+    const editorOptions = firstEditors.map((e, i) =>
+      `<option value="${i}">${e.name} (${e.email})</option>`
+    ).join("");
+
     el.innerHTML = `
-      <div style="padding:24px 0 8px;max-width:620px">
+      <div style="padding:24px 0 8px;max-width:680px">
         <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Create campaign</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Skapa ett Mailchimp-utkast för Industrial Loop med header, intro och footer.</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Skapa ett Mailchimp-utkast med header, intro och footer.</div>
 
         <div style="display:flex;flex-direction:column;gap:18px">
 
+          <!-- Loop-väljare -->
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Loop</label>
+            <select id="cc-loop" onchange="ccOnLoopChange()"
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff">
+              ${loopOptions}
+            </select>
+          </div>
+
+          <!-- Ämnesrad -->
           <div style="display:flex;flex-direction:column;gap:6px">
             <label style="font-size:13px;font-weight:600;color:var(--text)">Ämnesrad</label>
-            <input id="cc-subject" type="text" placeholder="t.ex. Viktig uppdatering från Industrial Loop"
+            <input id="cc-subject" type="text" placeholder="t.ex. Viktig uppdatering"
               style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%">
           </div>
 
+          <!-- Preheader -->
           <div style="display:flex;flex-direction:column;gap:6px">
             <label style="font-size:13px;font-weight:600;color:var(--text)">Preheader-text <span style="font-weight:400;color:var(--muted)">(valfri)</span></label>
             <input id="cc-preheader" type="text" placeholder="Kort sammanfattning som visas i inkorgen"
               style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%">
           </div>
 
+          <!-- Introtext -->
           <div style="display:flex;flex-direction:column;gap:6px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <label style="font-size:13px;font-weight:600;color:var(--text)">Introtext</label>
@@ -1677,10 +1704,12 @@
             <span style="font-size:11px;color:var(--muted)">Markera text och klicka B för fetstil eller 🔗 Länk för att länka.</span>
           </div>
 
+          <!-- Byline -->
           <div style="display:flex;flex-direction:column;gap:6px">
-            <label style="font-size:13px;font-weight:600;color:var(--text)">Avsändare (byline)</label>
-            <select id="cc-editor" style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff">
-              ${CAMPAIGN_EDITORS.map((e,i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("")}
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Byline (avsändare)</label>
+            <select id="cc-editor"
+              style="padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff">
+              ${editorOptions}
             </select>
           </div>
 
@@ -1692,8 +1721,228 @@
           </div>
 
           <div id="cc-result" style="display:none"></div>
+
+          <!-- Admin: hantera loopar -->
+          <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <span style="font-size:13px;font-weight:600;color:var(--text)">Hantera loopar &amp; redaktörer</span>
+              <button onclick="ccShowAddLoop()"
+                style="font-size:12px;padding:4px 12px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-family:inherit">
+                + Lägg till loop
+              </button>
+            </div>
+            <div id="cc-admin-list">
+              ${loops.map(l => ccLoopAdminRow(l)).join("")}
+            </div>
+            <div id="cc-admin-form" style="display:none;margin-top:16px"></div>
+          </div>
         </div>
       </div>`;
+  }
+
+  function ccLoopAdminRow(loop) {
+    return `
+      <div id="cc-loop-row-${loop.id}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--sidebar-bg)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:12px;height:12px;border-radius:50%;background:${loop.color};display:inline-block;flex-shrink:0"></span>
+          <span style="font-size:13px;font-weight:600">${loop.name}</span>
+          <span style="font-size:11px;color:var(--muted)">${loop.editors?.length || 0} redaktörer</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="ccShowEditLoop('${loop.id}')"
+            style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;font-family:inherit">Redigera</button>
+          <button onclick="ccDeleteLoop('${loop.id}')"
+            style="font-size:11px;padding:3px 10px;border:1px solid #fca5a5;border-radius:5px;background:#fff0f0;cursor:pointer;font-family:inherit;color:#dc2626">Radera</button>
+        </div>
+      </div>`;
+  }
+
+  function ccLoopForm(loop = null) {
+    const isEdit = !!loop;
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px">${isEdit ? "Redigera loop" : "Ny loop"}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Namn</label>
+            <input id="clf-name" value="${loop?.name || ""}" placeholder="t.ex. Impact Loop"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Färg (hex)</label>
+            <input id="clf-color" value="${loop?.color || "#ffffff"}" placeholder="#e4ffc2"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Avsändarnamn</label>
+            <input id="clf-from-name" value="${loop?.from_name || ""}" placeholder="t.ex. Industrial Loop"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Reply-to mejl</label>
+            <input id="clf-reply-to" value="${loop?.reply_to || ""}" placeholder="info@loop.se"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Mailchimp list ID</label>
+            <input id="clf-list-id" value="${loop?.mailchimp_list_id || ""}" placeholder="abc123"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Webbplats URL</label>
+            <input id="clf-website" value="${loop?.website_url || ""}" placeholder="https://www.loop.se"
+              style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
+          <label style="font-size:11px;color:var(--muted)">Logotyp URL</label>
+          <input id="clf-logo" value="${loop?.logo_url || ""}" placeholder="https://cdn.sanity.io/..."
+            style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;width:100%">
+        </div>
+
+        ${isEdit ? `
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--text)">Redaktörer</span>
+            <button onclick="ccShowAddEditor('${loop.id}')"
+              style="font-size:11px;padding:2px 10px;border:1px solid var(--border);border-radius:5px;background:var(--sidebar-bg);cursor:pointer;font-family:inherit">+ Lägg till</button>
+          </div>
+          <div id="clf-editors">
+            ${(loop.editors || []).map(e => ccEditorRow(e)).join("")}
+          </div>
+          <div id="clf-editor-form" style="display:none;margin-top:10px"></div>
+        </div>` : ""}
+
+        <div style="display:flex;gap:8px">
+          <button onclick="${isEdit ? `ccSaveLoop('${loop.id}')` : "ccCreateLoop()"}"
+            style="padding:7px 18px;background:#e4ffc2;border:1px solid #bef08b;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+            ${isEdit ? "Spara" : "Skapa loop"}
+          </button>
+          <button onclick="ccCloseForm()"
+            style="padding:7px 18px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">
+            Avbryt
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function ccEditorRow(editor) {
+    return `
+      <div id="clf-editor-row-${editor.id}" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:var(--sidebar-bg)">
+        <span style="font-size:12px">${editor.name} <span style="color:var(--muted)">(${editor.email})</span></span>
+        <button onclick="ccDeleteEditor('${editor.id}')"
+          style="font-size:11px;padding:2px 8px;border:1px solid #fca5a5;border-radius:4px;background:#fff0f0;cursor:pointer;color:#dc2626;font-family:inherit">Ta bort</button>
+      </div>`;
+  }
+
+  function ccShowAddLoop() {
+    document.getElementById("cc-admin-form").style.display = "block";
+    document.getElementById("cc-admin-form").innerHTML = ccLoopForm();
+    document.getElementById("cc-admin-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function ccShowEditLoop(id) {
+    const loop = ccLoops.find(l => l.id === id);
+    if (!loop) return;
+    document.getElementById("cc-admin-form").style.display = "block";
+    document.getElementById("cc-admin-form").innerHTML = ccLoopForm(loop);
+    document.getElementById("cc-admin-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function ccCloseForm() {
+    document.getElementById("cc-admin-form").style.display = "none";
+    document.getElementById("cc-admin-form").innerHTML = "";
+  }
+
+  function ccShowAddEditor(loopId) {
+    const f = document.getElementById("clf-editor-form");
+    f.style.display = "block";
+    f.innerHTML = `
+      <div style="border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--sidebar-bg)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input id="cef-name" placeholder="Namn" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+          <input id="cef-email" placeholder="mejl@loop.se" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit">
+        </div>
+        <input id="cef-image" placeholder="Bild URL" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;margin-bottom:8px">
+        <div style="display:flex;gap:6px">
+          <button onclick="ccCreateEditor('${loopId}')"
+            style="padding:5px 14px;background:#e4ffc2;border:1px solid #bef08b;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Lägg till</button>
+          <button onclick="document.getElementById('clf-editor-form').style.display='none'"
+            style="padding:5px 14px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:inherit">Avbryt</button>
+        </div>
+      </div>`;
+  }
+
+  async function ccCreateLoop() {
+    const body = {
+      name: document.getElementById("clf-name").value.trim(),
+      color: document.getElementById("clf-color").value.trim(),
+      from_name: document.getElementById("clf-from-name").value.trim(),
+      reply_to: document.getElementById("clf-reply-to").value.trim(),
+      mailchimp_list_id: document.getElementById("clf-list-id").value.trim(),
+      website_url: document.getElementById("clf-website").value.trim(),
+      logo_url: document.getElementById("clf-logo").value.trim(),
+    };
+    if (!body.name) return alert("Namn krävs");
+    await fetch("/api/loops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    ccLoops = [];
+    renderCreateCampaignPage();
+  }
+
+  async function ccSaveLoop(id) {
+    const body = {
+      name: document.getElementById("clf-name").value.trim(),
+      color: document.getElementById("clf-color").value.trim(),
+      from_name: document.getElementById("clf-from-name").value.trim(),
+      reply_to: document.getElementById("clf-reply-to").value.trim(),
+      mailchimp_list_id: document.getElementById("clf-list-id").value.trim(),
+      website_url: document.getElementById("clf-website").value.trim(),
+      logo_url: document.getElementById("clf-logo").value.trim(),
+    };
+    await fetch(`/api/loops?id=${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    ccLoops = [];
+    renderCreateCampaignPage();
+  }
+
+  async function ccDeleteLoop(id) {
+    if (!confirm("Radera denna loop och alla dess redaktörer?")) return;
+    await fetch(`/api/loops?id=${id}`, { method: "DELETE" });
+    ccLoops = [];
+    renderCreateCampaignPage();
+  }
+
+  async function ccCreateEditor(loopId) {
+    const body = {
+      loop_id: loopId,
+      name: document.getElementById("cef-name").value.trim(),
+      email: document.getElementById("cef-email").value.trim(),
+      image_url: document.getElementById("cef-image").value.trim(),
+    };
+    if (!body.name) return alert("Namn krävs");
+    await fetch("/api/loop-editors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    ccLoops = [];
+    renderCreateCampaignPage();
+    // Återöppna edit-formen för samma loop
+    setTimeout(() => ccShowEditLoop(loopId), 300);
+  }
+
+  async function ccDeleteEditor(id) {
+    if (!confirm("Ta bort denna redaktör?")) return;
+    const editor = ccLoops.flatMap(l => l.editors || []).find(e => e.id === id);
+    const loopId = editor?.loop_id;
+    await fetch(`/api/loop-editors?id=${id}`, { method: "DELETE" });
+    ccLoops = [];
+    renderCreateCampaignPage();
+    if (loopId) setTimeout(() => ccShowEditLoop(loopId), 300);
+  }
+
+  function ccOnLoopChange() {
+    const idx = parseInt(document.getElementById("cc-loop")?.value || "0", 10);
+    const loop = ccLoops[idx];
+    const editors = loop?.editors || [];
+    const sel = document.getElementById("cc-editor");
+    if (!sel) return;
+    sel.innerHTML = editors.map((e, i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("");
   }
 
   function ccInsertBold() {
@@ -1723,11 +1972,13 @@
   }
 
   async function ccSubmit() {
+    const idx      = parseInt(document.getElementById("cc-loop")?.value || "0", 10);
+    const loop     = ccLoops[idx];
     const subject  = document.getElementById("cc-subject").value.trim();
     const preheader= document.getElementById("cc-preheader").value.trim();
     const intro    = document.getElementById("cc-intro").value.trim();
-    const editorIdx= parseInt(document.getElementById("cc-editor").value, 10);
-    const editor   = CAMPAIGN_EDITORS[editorIdx];
+    const editorIdx= parseInt(document.getElementById("cc-editor").value || "0", 10);
+    const editor   = loop?.editors?.[editorIdx];
     const btn      = document.getElementById("cc-btn");
     const result   = document.getElementById("cc-result");
 
@@ -1745,7 +1996,15 @@
       const res = await fetch("/api/campaign-mailchimp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, previewText: preheader, intro, editorName: editor.name, editorEmail: editor.email, editorImageUrl: editor.imageUrl }),
+        body: JSON.stringify({
+          subject,
+          previewText: preheader,
+          intro,
+          loop: { name: loop.name, color: loop.color, logo_url: loop.logo_url, website_url: loop.website_url, from_name: loop.from_name, reply_to: loop.reply_to, mailchimp_list_id: loop.mailchimp_list_id },
+          editorName: editor?.name || "",
+          editorEmail: editor?.email || "",
+          editorImageUrl: editor?.image_url || "",
+        }),
       });
       const data = await res.json();
       result.style.display = "block";

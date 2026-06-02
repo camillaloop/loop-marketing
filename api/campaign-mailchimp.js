@@ -2,11 +2,10 @@
  * api/campaign-mailchimp.js
  * POST /api/campaign-mailchimp
  *
- * Skapar ett Mailchimp-kampanjutkast för Industrial Loop.
- * Body: { subject, previewText, intro, editorName, editorEmail, editorImageUrl }
+ * Skapar ett Mailchimp-kampanjutkast för valfri loop.
+ * Body: { subject, previewText, intro, loop, editorName, editorEmail, editorImageUrl }
+ * loop: { name, color, logo_url, website_url, from_name, reply_to, mailchimp_list_id }
  */
-
-const MC_LIST_ID = process.env.MAILCHIMP_IND_LIST_ID || process.env.MAILCHIMP_LIST_ID || "";
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -16,7 +15,7 @@ module.exports = async function handler(req, res) {
   const { MAILCHIMP_API_KEY } = process.env;
   if (!MAILCHIMP_API_KEY) return res.status(500).json({ error: "MAILCHIMP_API_KEY missing" });
 
-  const { subject, previewText, intro, editorName, editorEmail, editorImageUrl } = req.body || {};
+  const { subject, previewText, intro, loop, editorName, editorEmail, editorImageUrl } = req.body || {};
   if (!subject || !intro || !editorName) {
     return res.status(400).json({ error: "subject, intro och editorName krävs" });
   }
@@ -49,8 +48,17 @@ module.exports = async function handler(req, res) {
     .map(p => `<p>${parseMarkdown(p)}</p>`)
     .join("<p><br></p>");
 
+  // Loop-data (faller tillbaka på Industrial Loop-defaults om loop saknas)
+  const loopName    = loop?.name         || "Industrial Loop";
+  const loopColor   = loop?.color        || "#e4ffc2";
+  const loopLogo    = loop?.logo_url     || "https://cdn.sanity.io/images/dez2j7lq/production/6d951de86ea2597d10a6bbf5c65c3db0b5b22fb8-960x960.jpg";
+  const loopWeb     = loop?.website_url  || "https://www.industrialloop.se";
+  const loopFrom    = loop?.from_name    || "Industrial Loop";
+  const loopReplyTo = loop?.reply_to     || "info@loop.se";
+  const loopListId  = loop?.mailchimp_list_id || process.env.MAILCHIMP_IND_LIST_ID || process.env.MAILCHIMP_LIST_ID || "";
+
   const today = new Date().toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
-  const campaignTitle = `Kampanjutskick: Industrial Loop ${today}`;
+  const campaignTitle = `Kampanjutskick: ${loopName} ${today}`;
 
   const html = `<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -81,7 +89,7 @@ module.exports = async function handler(req, res) {
     .mceText a[href] {
       color: #000 !important;
       text-decoration: none !important;
-      border-bottom: 2px solid #e4ffc2 !important;
+      border-bottom: 2px solid ${loopColor} !important;
       padding-bottom: 1px !important;
     }
     @media only screen and (max-width: 480px) {
@@ -104,12 +112,12 @@ module.exports = async function handler(req, res) {
 
             <!-- HEADER -->
             <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
-              <tbody><tr><td style="background-color:#e4ffc2;padding:12px 48px;" align="left" valign="top">
-                <a href="https://www.industrialloop.se" style="display:block;" target="_blank">
+              <tbody><tr><td style="background-color:${loopColor};padding:12px 48px;" align="left" valign="top">
+                <a href="${loopWeb}" style="display:block;" target="_blank">
                   <img width="103" height="auto"
                     style="width:103px;height:auto;max-width:103px !important;display:block;"
-                    alt="Industrial Loop"
-                    src="https://cdn.sanity.io/images/dez2j7lq/production/6d951de86ea2597d10a6bbf5c65c3db0b5b22fb8-960x960.jpg">
+                    alt="${loopName}"
+                    src="${loopLogo}">
                 </a>
               </td></tr></tbody>
             </table>
@@ -147,30 +155,30 @@ module.exports = async function handler(req, res) {
             <!-- FOOTER -->
             <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
               <tbody>
-                <tr><td style="background-color:#e4ffc2;padding:32px 0 12px;" align="center" valign="top">
+                <tr><td style="background-color:${loopColor};padding:32px 0 12px;" align="center" valign="top">
                   <a href="https://www.linkedin.com/company/industrial-loop/" target="_blank" rel="noreferrer" style="display:inline-block;">
                     <img width="24" height="24" alt="LinkedIn"
                       src="https://cdn-images.mailchimp.com/icons/social-block-v3/block-icons-v3/linkedin-filled-dark-40.png">
                   </a>
                 </td></tr>
-                <tr><td style="background-color:#e4ffc2;padding:12px 48px;" align="center" valign="top">
+                <tr><td style="background-color:${loopColor};padding:12px 48px;" align="center" valign="top">
                   <img width="97" height="auto"
                     style="width:97px;height:auto;max-width:97px !important;display:block;margin:0 auto;"
-                    alt="Industrial Loop"
-                    src="https://cdn.sanity.io/images/dez2j7lq/production/6d951de86ea2597d10a6bbf5c65c3db0b5b22fb8-960x960.jpg">
+                    alt="${loopName}"
+                    src="${loopLogo}">
                 </td></tr>
-                <tr><td style="background-color:#e4ffc2;padding:12px 40px 32px;" align="center" valign="top">
+                <tr><td style="background-color:${loopColor};padding:12px 40px 32px;" align="center" valign="top">
                   <p style="font-family:Arial,sans-serif;font-size:12px;color:#555;text-align:center;margin:0 0 8px;">
-                    <em>Copyright (C) Industrial Loop 2026. All rights reserved.</em>
+                    <em>Copyright (C) ${loopName} 2026. All rights reserved.</em>
                   </p>
                   <p style="font-family:Arial,sans-serif;font-size:12px;color:#555;text-align:center;margin:0 0 8px;">
-                    Du får detta mejl eftersom du har signat upp dig på Industrial Loops nyhetsbrev, eller för att vi anser innehållet vara relevant för dig i din yrkesroll.
+                    Du får detta mejl eftersom du har signat upp dig på ${loopName}s nyhetsbrev, eller för att vi anser innehållet vara relevant för dig i din yrkesroll.
                   </p>
                   <p style="font-family:Arial,sans-serif;font-size:12px;color:#555;text-align:center;margin:0;">
                     Du kan när som helst
-                    <a href="https://impactloop.mailchimpsites.com/manage/preferences?u=46f8b3dcdd581118cad2f80ee&id=${MC_LIST_ID}&e=[UNIQID]" style="color:#555;">uppdatera dina preferenser</a>
+                    <a href="https://impactloop.mailchimpsites.com/manage/preferences?u=46f8b3dcdd581118cad2f80ee&id=${loopListId}&e=[UNIQID]" style="color:#555;">uppdatera dina preferenser</a>
                     eller
-                    <a href="https://impactloop.us21.list-manage.com/unsubscribe?u=46f8b3dcdd581118cad2f80ee&id=${MC_LIST_ID}&t=b&e=[UNIQID]" style="color:#555;">avregistrera</a>
+                    <a href="https://impactloop.us21.list-manage.com/unsubscribe?u=46f8b3dcdd581118cad2f80ee&id=${loopListId}&t=b&e=[UNIQID]" style="color:#555;">avregistrera</a>
                     dig helt.
                   </p>
                 </td></tr>
@@ -190,13 +198,13 @@ module.exports = async function handler(req, res) {
       method: "POST",
       body: JSON.stringify({
         type: "regular",
-        recipients: { list_id: MC_LIST_ID },
+        recipients: { list_id: loopListId },
         settings: {
           subject_line: subject,
           preview_text: previewText || subject,
           title: campaignTitle,
-          from_name: "Industrial Loop",
-          reply_to: "info@loop.se",
+          from_name: loopFrom,
+          reply_to: loopReplyTo,
         },
       }),
     });
