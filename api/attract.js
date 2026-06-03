@@ -29,6 +29,7 @@ module.exports = async function handler(req, res) {
   weekStart.setUTCDate(now.getUTCDate() - daysBack);
   weekStart.setUTCHours(0, 0, 0, 0);
   const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
+  const weekStartTime = weekStart.getTime();
 
   async function getAll(url, getItems) {
     const items = [];
@@ -52,7 +53,10 @@ module.exports = async function handler(req, res) {
       d => d.members || []
     );
 
-    const recentMembers = allChanged;
+    const recentMembers = allChanged.filter(m => {
+      const t = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
+      return t >= weekStartTime;
+    });
 
     const changedNotNew = allChanged.length - recentMembers.length;
 
@@ -70,7 +74,7 @@ module.exports = async function handler(req, res) {
 
     // Fetch all static segments
     const segsData = await fetch(
-      `${base}/lists/${listId}/segments?count=200&type=static&fields=segments.id,segments.name,segments.member_count`,
+      `${base}/lists/${listId}/segments?count=1000&type=static&fields=segments.id,segments.name,segments.member_count`,
       { headers: { Authorization: auth } }
     ).then(r => r.json());
     const segments = segsData.segments || [];
@@ -99,11 +103,9 @@ module.exports = async function handler(req, res) {
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
     for (const email of weekEmails) {
-      const source = sourceOf[email] || "";
-      if (apolloEmails.has(email))                               counts.apollo++;
-      else if (linkedinEmails.has(email))                        counts.linkedin++;
-      else if (source.includes("pliro") || source === "zapier" || source.startsWith("api"))  counts.organic++;
-      else                                                        counts.other++;
+      if (apolloEmails.has(email))      counts.apollo++;
+      else if (linkedinEmails.has(email)) counts.linkedin++;
+      else                               counts.organic++;
     }
 
     return {
