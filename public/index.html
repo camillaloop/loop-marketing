@@ -1639,6 +1639,7 @@
 
   // ── Create campaign ──────────────────────────────────────────────────────
   let ccLoops = []; // cache
+  let ccAllEditors = []; // alla redaktörer, oberoende av loop
 
   async function ccLoadLoops() {
     if (ccLoops.length) return ccLoops;
@@ -1651,15 +1652,19 @@
     const el = document.getElementById("main-content");
     el.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:24px 0">Laddar loopar…</div>`;
     ccLoops = [];
-    const loops = await ccLoadLoops().catch(() => []);
+    ccAllEditors = [];
+    const [loops, allEditors] = await Promise.all([
+      ccLoadLoops().catch(() => []),
+      fetch("/api/editors").then(r => r.json()).catch(() => []),
+    ]);
+    ccAllEditors = allEditors;
 
     const loopOptions = loops.map((l, i) =>
       `<option value="${i}" style="background:${l.color}">${l.name}</option>`
     ).join("");
 
-    const firstEditors = loops[0]?.editors || [];
-    const editorOptions = firstEditors.map((e, i) =>
-      `<option value="${i}">${e.name} (${e.email})</option>`
+    const editorOptions = allEditors.map((e, i) =>
+      `<option value="${i}">${e.name}</option>`
     ).join("");
 
     el.innerHTML = `
@@ -1967,9 +1972,6 @@
   function ccOnLoopChange() {
     const idx = parseInt(document.getElementById("cc-loop")?.value || "0", 10);
     const loop = ccLoops[idx];
-    const editors = loop?.editors || [];
-    const sel = document.getElementById("cc-editor");
-    if (sel) sel.innerHTML = editors.map((e, i) => `<option value="${i}">${e.name} (${e.email})</option>`).join("");
     // Visa/dölj segment-väljare
     const segWrap = document.getElementById("cc-segment-wrap");
     if (segWrap) segWrap.style.display = loop?.segment_gratis_id ? "flex" : "none";
@@ -2008,7 +2010,7 @@
     const preheader= document.getElementById("cc-preheader").value.trim();
     const intro    = document.getElementById("cc-intro").value.trim();
     const editorIdx= parseInt(document.getElementById("cc-editor").value || "0", 10);
-    const editor   = loop?.editors?.[editorIdx];
+    const editor   = ccAllEditors[editorIdx];
     const segment  = document.getElementById("cc-segment")?.value || "alla";
     const btn      = document.getElementById("cc-btn");
     const result   = document.getElementById("cc-result");
