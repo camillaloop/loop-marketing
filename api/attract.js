@@ -29,7 +29,6 @@ module.exports = async function handler(req, res) {
   weekStart.setUTCDate(now.getUTCDate() - daysBack);
   weekStart.setUTCHours(0, 0, 0, 0);
   const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
-  const weekStartTime = weekStart.getTime();
 
   async function getAll(url, getItems) {
     const items = [];
@@ -53,10 +52,7 @@ module.exports = async function handler(req, res) {
       d => d.members || []
     );
 
-    const recentMembers = allChanged.filter(m => {
-      const t = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
-      return t >= weekStartTime;
-    });
+    const recentMembers = allChanged;
 
     const changedNotNew = allChanged.length - recentMembers.length;
 
