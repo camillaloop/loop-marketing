@@ -40,7 +40,10 @@ module.exports = async function handler(req, res) {
   function parseMarkdown(text) {
     return text
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[([^\]]+)\]\(((?:https?:\/\/)?[^)]+)\)/g, (_, text, url) => {
+        const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+        return `<a href="${href}">${text}</a>`;
+      });
   }
 
   const introParagraphs = intro
