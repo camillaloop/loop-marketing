@@ -54,9 +54,10 @@ module.exports = async function handler(req, res) {
   const loopColor   = loop?.color        || "#e4ffc2";
   const loopLogo    = loop?.logo_url     || "https://cdn.sanity.io/images/dez2j7lq/production/6d951de86ea2597d10a6bbf5c65c3db0b5b22fb8-960x960.jpg";
   const loopWeb     = loop?.website_url  || "https://www.industrialloop.se";
-  const loopFrom    = loop?.from_name    || "Industrial Loop";
-  const loopReplyTo = loop?.reply_to     || "info@loop.se";
-  const loopListId  = loop?.mailchimp_list_id || process.env.MAILCHIMP_IND_LIST_ID || process.env.MAILCHIMP_LIST_ID || "";
+  const loopFrom     = loop?.from_name    || "Industrial Loop";
+  const loopReplyTo  = loop?.reply_to     || "info@loop.se";
+  const loopListId   = loop?.mailchimp_list_id || process.env.MAILCHIMP_IND_LIST_ID || process.env.MAILCHIMP_LIST_ID || "";
+  const loopLinkedIn = loop?.linkedin_url || "https://www.linkedin.com/company/industrial-loop/";
 
   // Segment-mottagare
   let recipients = { list_id: loopListId };
@@ -165,7 +166,7 @@ module.exports = async function handler(req, res) {
             <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
               <tbody>
                 <tr><td style="background-color:${loopColor};padding:32px 0 12px;" align="center" valign="top">
-                  <a href="https://www.linkedin.com/company/industrial-loop/" target="_blank" rel="noreferrer" style="display:inline-block;">
+                  <a href="${loopLinkedIn}" target="_blank" rel="noreferrer" style="display:inline-block;">
                     <img width="24" height="24" alt="LinkedIn"
                       src="https://cdn-images.mailchimp.com/icons/social-block-v3/block-icons-v3/linkedin-filled-dark-40.png">
                   </a>
@@ -185,9 +186,9 @@ module.exports = async function handler(req, res) {
                   </p>
                   <p style="font-family:Arial,sans-serif;font-size:12px;color:#555;text-align:center;margin:0;">
                     Du kan när som helst
-                    <a href="https://impactloop.mailchimpsites.com/manage/preferences?u=46f8b3dcdd581118cad2f80ee&id=${loopListId}&e=[UNIQID]" style="color:#555;">uppdatera dina preferenser</a>
+                    <a href="*|UPDATE_PROFILE|*" style="color:#555;">uppdatera dina preferenser</a>
                     eller
-                    <a href="https://impactloop.us21.list-manage.com/unsubscribe?u=46f8b3dcdd581118cad2f80ee&id=${loopListId}&t=b&e=[UNIQID]" style="color:#555;">avregistrera</a>
+                    <a href="*|UNSUB|*" style="color:#555;">avregistrera</a>
                     dig helt.
                   </p>
                 </td></tr>
