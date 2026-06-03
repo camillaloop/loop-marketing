@@ -12,7 +12,7 @@ const LISTS = {
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
+  res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=300");
 
   const { MAILCHIMP_API_KEY } = process.env;
   if (!MAILCHIMP_API_KEY)
@@ -49,67 +49,32 @@ module.exports = async function handler(req, res) {
 
   async function fetchListData(listId) {
     const allChanged = await getAll(
-      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.source,members.timestamp_opt,total_items`,
+      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.tags,total_items`,
       d => d.members || []
     );
 
+    // New this week (timestamp_opt) OR file imports (null timestamp_opt)
     const recentMembers = allChanged.filter(m => {
       if (!m.timestamp_opt) return true;
       const t = new Date(m.timestamp_opt).getTime();
       return t >= weekStartTime;
     });
 
-    const changedNotNew = allChanged.length - recentMembers.length;
-
-    const weekEmails = new Set(recentMembers.map(m => m.email_address.toLowerCase()));
-    const sourceOf   = Object.fromEntries(
-      recentMembers.map(m => [m.email_address.toLowerCase(), (m.source || "").toLowerCase()])
-    );
-
-    // Source breakdown
-    const sourceCounts = {};
-    for (const m of recentMembers) {
-      const s = (m.source || "none").toLowerCase();
-      sourceCounts[s] = (sourceCounts[s] || 0) + 1;
-    }
-
-    // Fetch all static segments
-    const segsData = await fetch(
-      `${base}/lists/${listId}/segments?count=1000&type=static&fields=segments.id,segments.name,segments.member_count`,
-      { headers: { Authorization: auth } }
-    ).then(r => r.json());
-    const segments = segsData.segments || [];
-
-    const apolloSegs   = segments.filter(s =>
-      s.name.toLowerCase() === "apollo" || /^new contacts-/i.test(s.name)
-    );
-    const linkedinSegs = segments.filter(s =>
-      s.name.toLowerCase() === "source: linkedin newsletter" ||
-      s.name.toLowerCase() === "linkedin lead gen"
-    );
-
-    async function segEmails(seg) {
-      const members = await getAll(
-        `${base}/lists/${listId}/segments/${seg.id}/members?fields=members.email_address,total_items`,
-        d => d.members || []
-      );
-      return new Set(members.map(m => m.email_address.toLowerCase()));
-    }
-
-    const apolloEmailSets   = await Promise.all(apolloSegs.map(segEmails));
-    const linkedinEmailSets = await Promise.all(linkedinSegs.map(segEmails));
-
-    const apolloEmails   = new Set(apolloEmailSets.flatMap(s => [...s]));
-    const linkedinEmails = new Set(linkedinEmailSets.flatMap(s => [...s]));
-
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-    for (const email of weekEmails) {
-      if (apolloEmails.has(email))      counts.apollo++;
-      else if (linkedinEmails.has(email)) counts.linkedin++;
-      else                               counts.organic++;
+
+    for (const m of recentMembers) {
+      const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+
+      if (tags.has("apollo")) {
+        counts.apollo++;
+      } else if (tags.has("source: linkedin newsletter") || tags.has("linkedin lead gen")) {
+        counts.linkedin++;
+      } else {
+        counts.organic++;
+      }
     }
 
-    return { total: weekEmails.size, channels: counts };
+    return { total: recentMembers.length, channels: counts };
   }
 
   const results = await Promise.allSettled([
