@@ -3,7 +3,8 @@
  * GET /api/attract
  *
  * New Mailchimp contacts added since Monday of the current ISO week,
- * across all four loop audiences.
+ * across all four loop audiences. Uses segment membership (not bulk tags)
+ * for reliable Apollo and LinkedIn attribution.
  */
 
 const LISTS = {
@@ -35,56 +36,86 @@ module.exports = async function handler(req, res) {
   const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
   const weekStartTime = weekStart.getTime();
 
-  async function fetchListData(listId) {
-    const allMembers = [];
+  async function getAll(url, getItems) {
+    const items = [];
     let offset = 0;
     while (true) {
-      const url = new URL(`${base}/lists/${listId}/members`);
-      url.searchParams.set("since_last_changed", weekStartIso);
-      url.searchParams.set("status",             "subscribed");
-      url.searchParams.set("count",              "500");
-      url.searchParams.set("offset",             String(offset));
-      url.searchParams.set("fields",
-        "members.email_address,members.source,members.tags,members.timestamp_opt,total_items");
-
-      const r = await fetch(url.toString(), { headers: { Authorization: auth } });
-      if (!r.ok) {
-        const text = await r.text();
-        throw new Error(`Mailchimp ${listId} ${r.status}: ${text}`);
-      }
+      const sep = url.includes("?") ? "&" : "?";
+      const r = await fetch(`${url}${sep}count=500&offset=${offset}`, { headers: { Authorization: auth } });
+      if (!r.ok) break;
       const data = await r.json();
-      allMembers.push(...(data.members || []));
-      if (allMembers.length >= (data.total_items || 0) || (data.members || []).length < 500) break;
+      const page = getItems(data);
+      items.push(...page);
+      if (items.length >= (data.total_items || 0) || page.length < 500) break;
       offset += 500;
     }
+    return items;
+  }
 
-    const weekMembers = allMembers.filter(m => {
-      const optTime = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
-      return optTime >= weekStartTime;
-    });
+  async function fetchListData(listId) {
+    // 1. New subscribed members this week (by timestamp_opt)
+    const recentMembers = await getAll(
+      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.source,members.timestamp_opt,total_items`,
+      d => (d.members || []).filter(m => {
+        const t = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
+        return t >= weekStartTime;
+      })
+    );
 
+    if (recentMembers.length === 0)
+      return { total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, other: 0 } };
+
+    const weekEmails  = new Set(recentMembers.map(m => m.email_address.toLowerCase()));
+    const sourceOf    = Object.fromEntries(
+      recentMembers.map(m => [m.email_address.toLowerCase(), (m.source || "").toLowerCase()])
+    );
+
+    // 2. Fetch all static segments (tags) for this list
+    const segsData = await fetch(
+      `${base}/lists/${listId}/segments?count=200&type=static&fields=segments.id,segments.name`,
+      { headers: { Authorization: auth } }
+    ).then(r => r.json());
+    const segments = segsData.segments || [];
+
+    // Find apollo and linkedin tag-segments
+    const apolloSegs   = segments.filter(s =>
+      s.name.toLowerCase() === "apollo" || /^new contacts-/i.test(s.name)
+    );
+    const linkedinSegs = segments.filter(s =>
+      s.name.toLowerCase() === "source: linkedin newsletter"
+    );
+
+    // 3. Get emails from each segment
+    async function segEmails(seg) {
+      const members = await getAll(
+        `${base}/lists/${listId}/segments/${seg.id}/members?fields=members.email_address,total_items`,
+        d => d.members || []
+      );
+      return new Set(members.map(m => m.email_address.toLowerCase()));
+    }
+
+    const apolloEmailSets   = await Promise.all(apolloSegs.map(segEmails));
+    const linkedinEmailSets = await Promise.all(linkedinSegs.map(segEmails));
+
+    const apolloEmails  = new Set(apolloEmailSets.flatMap(s => [...s]));
+    const linkedinEmails = new Set(linkedinEmailSets.flatMap(s => [...s]));
+
+    // 4. Categorise
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-
-    for (const m of weekMembers) {
-      const tagNames = new Set((m.tags || []).map(t => t.name.toLowerCase()));
-      const source   = (m.source || "").toLowerCase();
-
-      if (tagNames.has("apollo")) {
+    for (const email of weekEmails) {
+      const source = sourceOf[email] || "";
+      if (apolloEmails.has(email)) {
         counts.apollo++;
-      } else if (tagNames.has("source: linkedin newsletter")) {
+      } else if (linkedinEmails.has(email)) {
         counts.linkedin++;
-      } else if (
-        source === "zapier" ||
-        source.includes("pliro") ||
-        tagNames.has("form-pickup")
-      ) {
+      } else if (source.includes("pliro") || source === "zapier") {
         counts.organic++;
       } else {
         counts.other++;
       }
     }
 
-    return { total: weekMembers.length, channels: counts };
+    return { total: weekEmails.size, channels: counts };
   }
 
   const results = await Promise.allSettled([
@@ -94,7 +125,7 @@ module.exports = async function handler(req, res) {
     fetchListData(LISTS.ind),
   ]);
 
-  const empty = (err) => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, other: 0 }, error: err });
+  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, other: 0 }, error: err });
   const [il, vc, el, ind] = results.map(r =>
     r.status === "fulfilled" ? r.value : empty(r.reason?.message)
   );
