@@ -54,7 +54,8 @@ module.exports = async function handler(req, res) {
     );
 
     const recentMembers = allChanged.filter(m => {
-      const t = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
+      if (!m.timestamp_opt) return true;
+      const t = new Date(m.timestamp_opt).getTime();
       return t >= weekStartTime;
     });
 
@@ -108,19 +109,7 @@ module.exports = async function handler(req, res) {
       else                               counts.organic++;
     }
 
-    return {
-      total: weekEmails.size,
-      channels: counts,
-      debug: {
-        changedThisWeekNotNew: changedNotNew,
-        sourceCounts,
-        apolloSegmentsFound: apolloSegs.map(s => `${s.name} (${s.member_count} members)`),
-        linkedinSegmentsFound: linkedinSegs.map(s => `${s.name} (${s.member_count} members)`),
-        apolloSegmentTotalMembers: apolloEmailSets.reduce((n, s) => n + s.size, 0),
-        apolloIntersectionWithWeek: [...weekEmails].filter(e => apolloEmails.has(e)).length,
-        allSegmentNames: segments.map(s => `${s.name} (${s.member_count})`),
-      },
-    };
+    return { total: weekEmails.size, channels: counts };
   }
 
   const results = await Promise.allSettled([
