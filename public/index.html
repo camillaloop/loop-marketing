@@ -1253,7 +1253,7 @@
            ]},
   };
 
-  // Channel name → ID suffix used for live IL cells
+  // Channel name → DOM ID suffix used for live cells
   const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic" };
 
   function renderAttractPage() {
@@ -1261,12 +1261,11 @@
     if (!el) return;
 
     const cards = LOOPS.map(loop => {
-      const d    = ATTRACT_DATA[loop.id] || {};
-      const isIl = loop.id === "il";
+      const d = ATTRACT_DATA[loop.id] || {};
 
       const rows = (d.channels || []).map(ch => {
         const chId  = ATTRACT_CH_IDS[ch.name];
-        const numId = isIl && chId ? ` id="att-il-${chId}"` : "";
+        const numId = chId ? ` id="att-${loop.id}-${chId}"` : "";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
@@ -1277,9 +1276,6 @@
           </tr>`;
       }).join("");
 
-      const totalId    = isIl ? ' id="att-il-total"'    : "";
-      const deliveryId = isIl ? ' id="att-il-delivered"' : "";
-
       return `
         <div class="ov-card">
           <div class="ov-card-header">
@@ -1289,10 +1285,10 @@
           <div class="att-card-body">
             <div class="att-email-goal">
               Goal e-mail addresses:
-              <span class="att-email-count"><span${totalId}>${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
+              <span class="att-email-count"><span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">per week</span>
             </div>
-            <div class="att-apollo-row">Delivered by Apollo agent: <strong${deliveryId}>${escHtml(d.apolloDelivered)}</strong></div>
+            <div class="att-apollo-row">Delivered by Apollo agent: <strong id="att-${loop.id}-delivered">${escHtml(d.apolloDelivered)}</strong></div>
             <table class="att-ch-table">
               <thead>
                 <tr>
@@ -1324,12 +1320,14 @@
   async function loadAttractData(force = false) {
     if (attractCache && !force) { renderAttractData(attractCache); return; }
 
-    ["apollo", "linkedin", "organic"].forEach(ch => {
-      const cel = document.getElementById(`att-il-${ch}`);
-      if (cel) cel.textContent = "…";
+    LOOPS.forEach(loop => {
+      ["apollo", "linkedin", "organic"].forEach(ch => {
+        const cel = document.getElementById(`att-${loop.id}-${ch}`);
+        if (cel) cel.textContent = "…";
+      });
+      const totalEl = document.getElementById(`att-${loop.id}-total`);
+      if (totalEl) totalEl.textContent = "…";
     });
-    const totalEl = document.getElementById("att-il-total");
-    if (totalEl) totalEl.textContent = "…";
 
     try {
       const r = await fetch("/api/attract");
@@ -1337,25 +1335,29 @@
       attractCache = await r.json();
       renderAttractData(attractCache);
     } catch (e) {
-      ["apollo", "linkedin", "organic"].forEach(ch => {
-        const cel = document.getElementById(`att-il-${ch}`);
-        if (cel) cel.textContent = "err";
+      LOOPS.forEach(loop => {
+        ["apollo", "linkedin", "organic"].forEach(ch => {
+          const cel = document.getElementById(`att-${loop.id}-${ch}`);
+          if (cel) cel.textContent = "err";
+        });
       });
       console.error("[attract]", e);
     }
   }
 
   function renderAttractData(data) {
-    if (!data) return;
+    if (!data?.loops) return;
     const set = (id, val) => {
       const cel = document.getElementById(id);
       if (cel) cel.textContent = String(val);
     };
-    set("att-il-total",     data.total);
-    set("att-il-apollo",    data.channels.apollo);
-    set("att-il-delivered", data.channels.apollo);
-    set("att-il-linkedin",  data.channels.linkedin);
-    set("att-il-organic",   data.channels.organic);
+    for (const [loopId, d] of Object.entries(data.loops)) {
+      set(`att-${loopId}-total`,     d.total);
+      set(`att-${loopId}-apollo`,    d.channels.apollo);
+      set(`att-${loopId}-delivered`, d.channels.apollo);
+      set(`att-${loopId}-linkedin`,  d.channels.linkedin);
+      set(`att-${loopId}-organic`,   d.channels.organic);
+    }
   }
 
   // ── Engage page ──────────────────────────────────────────────────────────────
