@@ -693,13 +693,28 @@
   function renderIlMetrics(d) {
     if (!d) return;
     const currentMrr    = d.currentMrr    || 0;
-    const weekStartMrr  = d.mondayMrr     || 0;   // IL API uses mondayMrr
+    const weekStartMrr  = d.mondayMrr     || 0;
     const monthStartMrr = d.monthStartMrr || 0;
 
-    const mrrGrowthWeek  = Math.round(currentMrr - weekStartMrr);
-    const mrrGrowthMonth = Math.round(currentMrr - monthStartMrr);
+    const WEEK_GOAL  = 2500;
+    const MONTH_GOAL = 10000;
 
-    const fmtGrowth = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toLocaleString("sv-SE") + " kr";
+    // Day-of-week pace (Mon=1 … Sun=7)
+    const jsDay  = new Date().getDay();
+    const dayNum = jsDay === 0 ? 7 : jsDay;
+    const weekActual   = Math.round(currentMrr - weekStartMrr);
+    const weekExpected = Math.round((dayNum / 7) * WEEK_GOAL);
+    const weekDelta    = weekActual - weekExpected;
+
+    // Day-of-month pace
+    const today       = new Date();
+    const dayOfMonth  = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const monthActual   = Math.round(currentMrr - monthStartMrr);
+    const monthExpected = Math.round((dayOfMonth / daysInMonth) * MONTH_GOAL);
+    const monthDelta    = monthActual - monthExpected;
+
+    const fmtDelta = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toLocaleString("sv-SE") + " kr";
 
     function setIl(key, innerHTML) {
       const el = document.getElementById(`ov-il-${key}`);
@@ -714,12 +729,12 @@
       return valSpan + goalSpan + dot;
     }
 
-    setIl("mrrGrowthWeek",  cell(fmtGrowth(mrrGrowthWeek),
-                                 mrrGrowthWeek  >= 0 ? "green" : "red",
-                                 "2 500 kr", mrrGrowthWeek  >= 2500));
-    setIl("mrrGrowthMonth", cell(fmtGrowth(mrrGrowthMonth),
-                                 mrrGrowthMonth >= 0 ? "green" : "red",
-                                 "10 000 kr", mrrGrowthMonth >= 10000));
+    setIl("mrrGrowthWeek",  cell(fmtDelta(weekDelta),
+                                 weekDelta  >= 0 ? "green" : "red",
+                                 "i tid", weekDelta >= 0));
+    setIl("mrrGrowthMonth", cell(fmtDelta(monthDelta),
+                                 monthDelta >= 0 ? "green" : "red",
+                                 "i tid", monthDelta >= 0));
   }
 
   function escHtml(s) {
