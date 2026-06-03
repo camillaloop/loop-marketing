@@ -489,7 +489,6 @@
     <a class="nav-link" onclick="switchTab('email-campaigns', this)">E-mail campaigns</a>
     <a class="nav-link" onclick="switchTab('linkedin-campaigns', this)">LinkedIn campaigns</a>
     <a class="nav-link" onclick="switchTab('create-campaign', this)">Create campaign</a>
-    <a class="nav-link" onclick="switchTab('editors', this)">Editors</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
   </nav>
 </aside>
@@ -514,7 +513,6 @@
     "email-campaigns":    "E-mail campaigns",
     "linkedin-campaigns": "LinkedIn campaigns",
     "create-campaign":    "Create campaign",
-    "editors":            "Editors",
     "historic-data":      "Historic data",
   };
 
@@ -530,7 +528,6 @@
     if (tab === "email-campaigns")    renderEmailCampaignsPage();
     if (tab === "linkedin-campaigns") renderLinkedInCampaignsPage();
     if (tab === "create-campaign")    renderCreateCampaignPage();
-    if (tab === "editors")            renderEditorsPage();
     if (tab === "historic-data")      renderHistoricData();
   }
 
@@ -2057,77 +2054,6 @@
       btn.textContent = "✓ Skapa Mailchimp-utkast";
       btn.disabled = false;
     }
-  }
-
-  // ── Editors ──────────────────────────────────────────────────────────────
-  async function renderEditorsPage() {
-    const el = document.getElementById("main-content");
-    el.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:24px 0">Laddar redaktörer…</div>`;
-
-    const [editors, loops] = await Promise.all([
-      fetch("/api/editors").then(r => r.json()),
-      fetch("/api/loops").then(r => r.json()),
-    ]);
-
-    window._edEditors = editors;
-    window._edLoops   = loops;
-
-    function editorCard(e) {
-      const linkedIds = new Set(loops.filter(l => (l.editors||[]).some(le => le.id === e.id)).map(l => l.id));
-      const loopCheckboxes = loops.map(l => `
-        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:6px;background:${l.color}33;border:1px solid ${l.color}">
-          <input type="checkbox" data-editor-id="${e.id}" data-loop-id="${l.id}" ${linkedIds.has(l.id) ? "checked" : ""}
-            onchange="edToggleLoop(this)" style="cursor:pointer"> ${l.name}
-        </label>`).join("");
-
-      return `
-        <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--sidebar-bg)">
-          ${e.image_url
-            ? `<img src="${e.image_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
-            : `<div style="width:40px;height:40px;border-radius:50%;background:var(--border);flex-shrink:0"></div>`}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;margin-bottom:2px">${e.name}</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${e.email}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">${loopCheckboxes}</div>
-          </div>
-        </div>`;
-    }
-
-    el.innerHTML = `
-      <div style="padding:24px 0 8px;max-width:680px">
-        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Editors</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">
-          Koppla redaktörer till loopar. Redaktörerna läggs till direkt i Supabase.
-        </div>
-        <div id="ed-list">
-          ${editors.length
-            ? editors.map(e => editorCard(e)).join("")
-            : '<div style="font-size:13px;color:var(--muted)">Inga redaktörer i databasen än.</div>'}
-        </div>
-      </div>`;
-  }
-
-  async function edToggleLoop(cb) {
-    const editorId = cb.dataset.editorId;
-    const loopId   = cb.dataset.loopId;
-    if (cb.checked) {
-      await fetch("/api/editors?action=link", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loop_id: loopId, editor_id: editorId }),
-      });
-    } else {
-      const loop   = (window._edLoops || []).find(l => l.id === loopId);
-      const linkId = loop?.editors?.find(e => e.id === editorId)?.link_id;
-      if (linkId) await fetch(`/api/editors?action=unlink&id=${linkId}`, { method: "DELETE" });
-    }
-    ccLoops = [];
-    // Uppdatera lokalt cache utan full re-render
-    const [editors, loops] = await Promise.all([
-      fetch("/api/editors").then(r => r.json()),
-      fetch("/api/loops").then(r => r.json()),
-    ]);
-    window._edEditors = editors;
-    window._edLoops   = loops;
   }
 
   // Boot
