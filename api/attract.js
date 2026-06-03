@@ -83,7 +83,8 @@ module.exports = async function handler(req, res) {
       s.name.toLowerCase() === "apollo" || /^new contacts-/i.test(s.name)
     );
     const linkedinSegs = segments.filter(s =>
-      s.name.toLowerCase() === "source: linkedin newsletter"
+      s.name.toLowerCase() === "source: linkedin newsletter" ||
+      s.name.toLowerCase() === "linkedin lead gen"
     );
 
     async function segEmails(seg) {
@@ -105,7 +106,7 @@ module.exports = async function handler(req, res) {
       const source = sourceOf[email] || "";
       if (apolloEmails.has(email))                               counts.apollo++;
       else if (linkedinEmails.has(email))                        counts.linkedin++;
-      else if (source.includes("pliro") || source === "zapier")  counts.organic++;
+      else if (source.includes("pliro") || source === "zapier" || source.startsWith("api"))  counts.organic++;
       else                                                        counts.other++;
     }
 
