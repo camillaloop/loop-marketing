@@ -57,7 +57,14 @@ module.exports = async function handler(req, res) {
     const recentMembers = allChanged.filter(m => {
       const optTime    = m.timestamp_opt    ? new Date(m.timestamp_opt).getTime()    : 0;
       const signupTime = m.timestamp_signup ? new Date(m.timestamp_signup).getTime() : 0;
-      return Math.max(optTime, signupTime) >= weekStartTime;
+
+      // New subscriber this week
+      if (optTime >= weekStartTime || signupTime >= weekStartTime) return true;
+
+      // No timestamps at all = brand new file import with no prior history → include
+      if (!m.timestamp_opt && !m.timestamp_signup) return true;
+
+      return false;
     });
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
