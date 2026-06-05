@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
 
   async function fetchListData(listId) {
     const allChanged = await getAll(
-      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,,
+      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,
       d => d.members || []
     );
 
