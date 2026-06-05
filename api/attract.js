@@ -49,15 +49,15 @@ module.exports = async function handler(req, res) {
 
   async function fetchListData(listId) {
     const allChanged = await getAll(
-      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.tags,total_items`,
+      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,,
       d => d.members || []
     );
 
     // New this week (timestamp_opt) OR file imports (null timestamp_opt)
     const recentMembers = allChanged.filter(m => {
-      if (!m.timestamp_opt) return true;
-      const t = new Date(m.timestamp_opt).getTime();
-      return t >= weekStartTime;
+      const optTime    = m.timestamp_opt    ? new Date(m.timestamp_opt).getTime()    : 0;
+      const signupTime = m.timestamp_signup ? new Date(m.timestamp_signup).getTime() : 0;
+      return Math.max(optTime, signupTime) >= weekStartTime;
     });
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
