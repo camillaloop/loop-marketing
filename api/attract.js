@@ -54,26 +54,16 @@ module.exports = async function handler(req, res) {
     );
 
     // New this week (timestamp_opt) OR file imports (null timestamp_opt)
-    const recentMembers = allChanged.filter(m => {
-      // Standard: opted in this week
-      if (m.timestamp_opt) {
-        return new Date(m.timestamp_opt).getTime() >= weekStartTime;
-      }
-      // For null-timestamp contacts: exclude anything the sunset system has touched
-      const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
-      if (tags.has("sunset-pending") || tags.has("sunset-kept") || tags.has("sunset-archived")) {
-        return false;
-      }
-      // No timestamp + no sunset tags = new import within grace period → include
-      return true;
-    });
+    const recentMembers = allChanged.filter(m =>
+      m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime
+    );
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
 
     for (const m of recentMembers) {
       const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
 
-      if (tags.has("apollo")) {
+      if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
         counts.apollo++;
       } else if (tags.has("source: linkedin newsletter") || tags.has("linkedin lead gen")) {
         counts.linkedin++;
