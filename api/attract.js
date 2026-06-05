@@ -53,10 +53,12 @@ module.exports = async function handler(req, res) {
       d => d.members || []
     );
 
-    // New this week (timestamp_opt) OR file imports (null timestamp_opt)
-    const recentMembers = allChanged.filter(m =>
-      m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime
-    );
+    // New this week (timestamp_opt) OR tagged src-apollo-YYYY-MM (file imports)
+    const recentMembers = allChanged.filter(m => {
+      if (m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime) return true;
+      const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      return [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t));
+    });
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
 
