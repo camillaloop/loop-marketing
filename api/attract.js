@@ -55,16 +55,17 @@ module.exports = async function handler(req, res) {
 
     // New this week (timestamp_opt) OR file imports (null timestamp_opt)
     const recentMembers = allChanged.filter(m => {
-      const optTime    = m.timestamp_opt    ? new Date(m.timestamp_opt).getTime()    : 0;
-      const signupTime = m.timestamp_signup ? new Date(m.timestamp_signup).getTime() : 0;
-
-      // New subscriber this week
-      if (optTime >= weekStartTime || signupTime >= weekStartTime) return true;
-
-      // No timestamps at all = brand new file import with no prior history → include
-      if (!m.timestamp_opt && !m.timestamp_signup) return true;
-
-      return false;
+      // Standard: opted in this week
+      if (m.timestamp_opt) {
+        return new Date(m.timestamp_opt).getTime() >= weekStartTime;
+      }
+      // For null-timestamp contacts: exclude anything the sunset system has touched
+      const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      if (tags.has("sunset-pending") || tags.has("sunset-kept") || tags.has("sunset-archived")) {
+        return false;
+      }
+      // No timestamp + no sunset tags = new import within grace period → include
+      return true;
     });
 
     const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
