@@ -2046,30 +2046,66 @@
 
   // ── Kohort attribution ───────────────────────────────────────────────────────
 
-  let kohortCache    = null;
-  let kohortChannel  = "all"; // "all" | "Apollo" | "LinkedIn" | "Organic"
+  const KOHORT_LOOPS = [
+    { id: "vc",  label: "Impact Loop VC",  color: "#d0c4de" },
+    { id: "il",  label: "Impact Loop",     color: "#e5ff00" },
+    { id: "el",  label: "Energy Loop",     color: "#5be87a" },
+    { id: "ind", label: "Industrial Loop", color: "#e4ffc2" },
+  ];
+
+  let kohortCaches   = {};          // keyed by loop id
+  let kohortChannel  = "all";       // "all" | "Apollo" | "LinkedIn" | "Organic"
+  let kohortLoop     = "vc";        // active loop id
 
   function renderKohortPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
+
+    const loopOptions = KOHORT_LOOPS.map(l =>
+      `<option value="${l.id}"${l.id === kohortLoop ? " selected" : ""}>${escHtml(l.label)}</option>`
+    ).join("");
+
+    const activeLoop = KOHORT_LOOPS.find(l => l.id === kohortLoop) || KOHORT_LOOPS[0];
+
     el.innerHTML = `
       <div style="padding:24px 0 8px">
-        <div class="coh-section-title">Kohort attribution</div>
-        <div class="coh-section-sub">Impact Loop VC — konverteringar per vecka och kanal sedan mars 2026</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;flex-wrap:wrap">
+          <div class="coh-section-title" style="margin-bottom:0">Kohort attribution</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="ov-color-dot" style="background:${activeLoop.color}"></span>
+            <select id="coh-loop-select" onchange="switchKohortLoop(this.value)"
+              style="padding:5px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+              ${loopOptions}
+            </select>
+          </div>
+        </div>
+        <div class="coh-section-sub">Konverteringar per vecka och kanal sedan mars 2026</div>
         <div id="coh-body"><span style="font-size:13px;color:var(--muted)">Laddar…</span></div>
       </div>`;
     loadKohortData();
   }
 
+  function switchKohortLoop(id) {
+    kohortLoop    = id;
+    kohortChannel = "all";
+    // Update color dot
+    const dot = document.querySelector("#coh-loop-select").previousElementSibling;
+    const loop = KOHORT_LOOPS.find(l => l.id === id);
+    if (dot && loop) dot.style.background = loop.color;
+    const body = document.getElementById("coh-body");
+    if (body) body.innerHTML = `<span style="font-size:13px;color:var(--muted)">Laddar…</span>`;
+    loadKohortData();
+  }
+
   async function loadKohortData(force = false) {
-    if (kohortCache && !force) { renderKohortBody(kohortCache); return; }
+    if (kohortCaches[kohortLoop] && !force) { renderKohortBody(kohortCaches[kohortLoop]); return; }
     const body = document.getElementById("coh-body");
     if (body) body.innerHTML = `<span style="font-size:13px;color:var(--muted)">Laddar… (kan ta upp till 30 s)</span>`;
     try {
-      const r = await fetch("/api/cohort-vc");
+      const r = await fetch(`/api/cohort-${kohortLoop}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      kohortCache = await r.json();
-      renderKohortBody(kohortCache);
+      kohortCaches[kohortLoop] = await r.json();
+      renderKohortBody(kohortCaches[kohortLoop]);
     } catch(e) {
       const body = document.getElementById("coh-body");
       if (body) body.innerHTML = `<span style="color:#b33;font-size:13px">Fel: ${escHtml(e.message)}</span>`;
@@ -2139,7 +2175,7 @@
           <button class="coh-filter-btn${kohortChannel === ch ? " active" : ""}"
             onclick="setKohortChannel('${ch}')">${ch === "all" ? "Alla" : escHtml(ch)}</button>`
         ).join("")}
-        <button onclick="loadKohortData(true)" style="margin-left:auto;font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer">↻ Uppdatera</button>
+        <button onclick="delete kohortCaches[kohortLoop]; loadKohortData()" style="margin-left:auto;font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer">↻ Uppdatera</button>
       </div>`;
 
     // Group rows by week
