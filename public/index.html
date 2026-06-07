@@ -2216,7 +2216,7 @@
 
   function setKohortChannel(ch) {
     kohortChannel = ch;
-    if (kohortCache) renderKohortBody(kohortCache);
+    if (kohortCaches[kohortLoop]) renderKohortBody(kohortCaches[kohortLoop]);
   }
 
   // ── Converted email popup ──────────────────────────────────────────────────
