@@ -1430,18 +1430,12 @@
       const d = ATTRACT_DATA[loop.id] || {};
 
       const rows = (d.channels || []).map(ch => {
-        const chId   = ATTRACT_CH_IDS[ch.name];
-        const numId  = chId ? ` id="att-${loop.id}-${chId}"` : "";
-        const convId = chId ? ` id="att-${loop.id}-conv-${chId}"` : "";
-        const cacId  = chId ? ` id="att-${loop.id}-cac-${chId}"` : "";
-        const revId  = chId ? ` id="att-${loop.id}-rev-${chId}"` : "";
+        const chId  = ATTRACT_CH_IDS[ch.name];
+        const numId = chId ? ` id="att-${loop.id}-${chId}"` : "";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
             <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
-            <td class="att-ch-val"${cacId}>–</td>
-            <td class="att-ch-val"${convId}>${escHtml(ch.converted)}</td>
-            <td class="att-ch-val"${revId}>–</td>
           </tr>`;
       }).join("");
 
@@ -1465,9 +1459,6 @@
                 <tr>
                   <th class="att-ch-head att-ch-name">Channel</th>
                   <th class="att-ch-head att-ch-val">Number</th>
-                  <th class="att-ch-head att-ch-val">CAC</th>
-                  <th class="att-ch-head att-ch-val">Converted</th>
-                  <th class="att-ch-head att-ch-val">Revenue</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -1529,36 +1520,6 @@
       set(`att-${loopId}-apollo`,    d.channels.apollo);
       set(`att-${loopId}-linkedin`,  d.channels.linkedin);
       set(`att-${loopId}-organic`,   d.channels.organic);
-      // Converted per channel — clickable if emails available
-      if (d.converted) {
-        ["apollo", "linkedin", "organic"].forEach(ch => {
-          const cel = document.getElementById(`att-${loopId}-conv-${ch}`);
-          if (!cel) return;
-          const count  = d.converted[ch] || 0;
-          const emails = d.convertedEmails?.[ch] || [];
-          if (count > 0 && emails.length > 0) {
-            cel.innerHTML = `<a href="#" class="conv-link" data-emails="${emails.join(",")}">${count}</a>`;
-          } else {
-            cel.textContent = count > 0 ? count : "–";
-          }
-          // Calculate CAC = channel cost / conversions
-          const cacEl = document.getElementById(`att-${loopId}-cac-${ch}`);
-          const cost  = (CHANNEL_COSTS[loopId] || {})[ch];
-          if (cacEl) {
-            if (cost != null && count > 0) {
-              cacEl.textContent = Math.round(cost / count).toLocaleString("sv-SE") + " kr";
-            } else if (cost != null) {
-              cacEl.textContent = "–";
-            }
-          }
-          // Revenue from Stripe
-          const revEl  = document.getElementById(`att-${loopId}-rev-${ch}`);
-          const revAmt = d.revenue?.[ch];
-          if (revEl && revAmt != null) {
-            revEl.textContent = revAmt > 0 ? revAmt.toLocaleString("sv-SE") + " kr" : "–";
-          }
-        });
-      }
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
         netEl.textContent = d.netGrowth;
