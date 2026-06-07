@@ -80,23 +80,26 @@ module.exports = async function handler(req, res) {
     const converted       = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
     const convertedEmails = { apollo: [], linkedin: [], organic: [] };
 
+    // Parse both YYYY-MM-DD and MM/DD/YYYY formats
+    function parsePliroDate(s) {
+      if (!s) return 0;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00Z").getTime();
+      const parts = s.split("/");
+      if (parts.length === 3) {
+        const [mo, da, yr] = parts;
+        return new Date(`${yr}-${mo.padStart(2,"0")}-${da.padStart(2,"0")}T00:00:00Z`).getTime();
+      }
+      return 0;
+    }
+
     for (const m of recentMembers) {
       const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
       const mf         = m.merge_fields || {};
-      // Parse both YYYY-MM-DD and MM/DD/YYYY formats
-      function parsePliroDate(s) {
-        if (!s) return 0;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00Z").getTime();
-        const parts = s.split("/");
-        if (parts.length === 3) {
-          const [mo, da, yr] = parts;
-          return new Date(`${yr}-${mo.padStart(2,"0")}-${da.padStart(2,"0")}T00:00:00Z`).getTime();
-        }
-        return 0;
-      }
+      const joinedThisWeek = m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime;
       const pliroStartTime = parsePliroDate(mf.PLIROSSTRT || "");
       const pliroStartedThisWeek = pliroStartTime >= weekStartTime;
-      const isConv = pliroStartedThisWeek && isConverted(mf);
+      // Converted = joined this week (real opt-in) AND Pliro started this week AND plan rule
+      const isConv = joinedThisWeek && pliroStartedThisWeek && isConverted(mf);
 
       let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {

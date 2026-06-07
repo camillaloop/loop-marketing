@@ -1955,13 +1955,10 @@
     }
   }
 
-  // Boot
-  renderOverviewPage();
-
   // ── Converted email popup ──────────────────────────────────────────────────
-  const convPopup = document.getElementById("conv-popup");
   document.addEventListener("click", e => {
-    const link = e.target.closest(".conv-link");
+    const popup = document.getElementById("conv-popup");
+    const link  = e.target.closest(".conv-link");
     if (link) {
       e.preventDefault();
       const emails = (link.dataset.emails || "").split(",").filter(Boolean);
@@ -1970,16 +1967,20 @@
       document.getElementById("conv-popup-count").textContent =
         `${emails.length} konverterad${emails.length !== 1 ? "e" : ""}`;
       const rect = link.getBoundingClientRect();
-      convPopup.style.top  = (rect.bottom + window.scrollY + 6) + "px";
-      convPopup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 420) + "px";
-      convPopup.style.display = "block";
+      popup.style.top     = (rect.bottom + window.scrollY + 6) + "px";
+      popup.style.left    = Math.min(rect.left + window.scrollX, window.innerWidth - 420) + "px";
+      popup.style.display = "block";
       return;
     }
-    if (!convPopup.contains(e.target)) convPopup.style.display = "none";
+    const popup2 = document.getElementById("conv-popup");
+    if (popup2 && !popup2.contains(e.target)) popup2.style.display = "none";
   });
   document.getElementById("conv-popup-close").addEventListener("click", () => {
-    convPopup.style.display = "none";
+    document.getElementById("conv-popup").style.display = "none";
   });
+
+  // Boot
+  renderOverviewPage();
 </script>
 
 <div id="conv-popup">
