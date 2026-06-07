@@ -1363,12 +1363,12 @@
           </div>
           <div class="att-card-body">
             <div class="att-email-goal">
-              Net growth: <span id="att-${loop.id}-net">–</span>
-            </div>
-            <div class="att-email-goal">
-              New e-mail addresses:
-              <span class="att-email-count"><span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
+              Net growth:
+              <span class="att-email-count"><span id="att-${loop.id}-net">–</span> / ${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">per week</span>
+            </div>
+            <div class="att-email-goal" style="font-size:13px;color:var(--muted)">
+              New e-mail addresses: <span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span>
             </div>
             <table class="att-ch-table">
               <thead>
@@ -1441,8 +1441,7 @@
       set(`att-${loopId}-organic`,   d.channels.organic);
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
-        const sign = d.netGrowth >= 0 ? "+" : "";
-        netEl.textContent = `${sign}${d.netGrowth}`;
+        netEl.textContent = d.netGrowth;
         netEl.style.color = d.netGrowth >= 0 ? "#1a7a3a" : "#a32d2d";
         netEl.style.fontWeight = "700";
       }
