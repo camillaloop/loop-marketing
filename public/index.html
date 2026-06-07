@@ -1432,10 +1432,13 @@
       const rows = (d.channels || []).map(ch => {
         const chId  = ATTRACT_CH_IDS[ch.name];
         const numId = chId ? ` id="att-${loop.id}-${chId}"` : "";
+        const cost  = chId ? ((CHANNEL_COSTS[loop.id] || {})[chId] || 0) : 0;
+        const costStr = cost > 0 ? cost.toLocaleString("sv-SE") + " kr" : "–";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
             <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
+            <td class="att-ch-val">${costStr}</td>
           </tr>`;
       }).join("");
 
@@ -1459,6 +1462,7 @@
                 <tr>
                   <th class="att-ch-head att-ch-name">Channel</th>
                   <th class="att-ch-head att-ch-val">Number</th>
+                  <th class="att-ch-head att-ch-val">Cost</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
