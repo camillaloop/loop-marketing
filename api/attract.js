@@ -70,9 +70,11 @@ module.exports = async function handler(req, res) {
     const converted  = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
 
     for (const m of recentMembers) {
-      const tags   = new Set((m.tags || []).map(t => t.name.toLowerCase()));
-      const pliro  = (m.merge_fields?.PLIROSSTAT || "").toLowerCase().trim();
-      const isConv = pliro === "active";
+      const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      const pliroStat  = (m.merge_fields?.PLIROSSTAT || "").toLowerCase().trim();
+      const pliroStart = (m.merge_fields?.PLIROSSTRT || "").trim();
+      const pliroStartTime = pliroStart ? new Date(pliroStart + "T00:00:00Z").getTime() : 0;
+      const isConv = pliroStat === "active" && pliroStartTime >= weekStartTime;
 
       let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
