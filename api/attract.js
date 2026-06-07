@@ -104,7 +104,7 @@ module.exports = async function handler(req, res) {
       let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
         channel = "apollo";
-      } else if (tags.has("source: linkedin newsletter") || tags.has("linkedin lead gen")) {
+      } else if ([...tags].some(t => t.includes("linkedin"))) {
         channel = "linkedin";
       } else {
         channel = "organic";
