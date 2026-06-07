@@ -1370,6 +1370,9 @@
               <span class="att-email-count"><span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">per week</span>
             </div>
+            <div class="att-email-goal" style="color:var(--muted);font-size:13px">
+              Net growth: <span id="att-${loop.id}-net">–</span>
+            </div>
             <table class="att-ch-table">
               <thead>
                 <tr>
@@ -1408,6 +1411,8 @@
       });
       const totalEl = document.getElementById(`att-${loop.id}-total`);
       if (totalEl) totalEl.textContent = "…";
+      const netEl = document.getElementById(`att-${loop.id}-net`);
+      if (netEl) netEl.textContent = "…";
     });
 
     try {
@@ -1437,6 +1442,13 @@
       set(`att-${loopId}-apollo`,    d.channels.apollo);
       set(`att-${loopId}-linkedin`,  d.channels.linkedin);
       set(`att-${loopId}-organic`,   d.channels.organic);
+      const netEl = document.getElementById(`att-${loopId}-net`);
+      if (netEl && d.netGrowth != null) {
+        const sign = d.netGrowth >= 0 ? "+" : "";
+        netEl.textContent = `${sign}${d.netGrowth}`;
+        netEl.style.color = d.netGrowth >= 0 ? "#1a7a3a" : "#a32d2d";
+        netEl.style.fontWeight = "700";
+      }
     }
   }
 

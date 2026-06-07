@@ -48,10 +48,16 @@ module.exports = async function handler(req, res) {
   }
 
   async function fetchListData(listId) {
-    const allChanged = await getAll(
-      `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,
-      d => d.members || []
-    );
+    const [allChanged, allUnsubscribed] = await Promise.all([
+      getAll(
+        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,
+        d => d.members || []
+      ),
+      getAll(
+        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=unsubscribed&fields=members.email_address,members.unsubscribe_reason,total_items`,
+        d => d.members || []
+      ),
+    ]);
 
     // New this week (timestamp_opt) OR tagged src-apollo-YYYY-MM (file imports)
     const recentMembers = allChanged.filter(m => {
@@ -74,7 +80,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return { total: recentMembers.length, channels: counts };
+    const netGrowth = recentMembers.length - allUnsubscribed.length;
+
+    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, channels: counts };
   }
 
   const results = await Promise.allSettled([
