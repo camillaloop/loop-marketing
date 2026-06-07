@@ -726,7 +726,7 @@
     function cell(valueHtml, valueCls, goalText, isOk) {
       const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
       if (goalText == null) return valSpan;
-      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const goalSpan = goalText ? `<span class="ov-row-goal-txt">/ ${goalText}</span>` : "";
       const dot      = isOk == null ? "" :
         `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
       return valSpan + goalSpan + dot;
@@ -734,10 +734,10 @@
 
     setIl("mrrGrowthWeek",  cell(fmtDelta(weekDelta),
                                  weekDelta  >= 0 ? "green" : "red",
-                                 "i tid", weekDelta >= 0));
+                                 "", weekDelta >= 0));
     setIl("mrrGrowthMonth", cell(fmtDelta(monthDelta),
                                  monthDelta >= 0 ? "green" : "red",
-                                 "i tid", monthDelta >= 0));
+                                 "", monthDelta >= 0));
   }
 
   // ── Energy Loop (Google Sheets MRR) ─────────────────────────────────────────
@@ -790,7 +790,7 @@
     function cell(valueHtml, valueCls, goalText, isOk) {
       const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
       if (goalText == null) return valSpan;
-      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const goalSpan = goalText ? `<span class="ov-row-goal-txt">/ ${goalText}</span>` : "";
       const dot      = isOk == null ? "" :
         `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
       return valSpan + goalSpan + dot;
@@ -798,10 +798,10 @@
 
     setEl("mrrGrowthWeek",  cell(fmtDelta(weekDelta),
                                  weekDelta  >= 0 ? "green" : "red",
-                                 "i tid", weekDelta >= 0));
+                                 "", weekDelta >= 0));
     setEl("mrrGrowthMonth", cell(fmtDelta(monthDelta),
                                  monthDelta >= 0 ? "green" : "red",
-                                 "i tid", monthDelta >= 0));
+                                 "", monthDelta >= 0));
   }
 
   function escHtml(s) {
