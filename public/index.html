@@ -561,14 +561,14 @@
   <div class="logo">Marketing</div>
   <nav>
     <a class="nav-link active" onclick="switchTab('overview', this)">Overview</a>
-    <a class="nav-link" onclick="switchTab('attract', this)">Attract</a>
+    <a class="nav-link" onclick="switchTab('attract', this)">E-mail growth</a>
+    <a class="nav-link" onclick="switchTab('kohort-attribution', this)">Kohort attribution</a>
     <a class="nav-link" onclick="switchTab('engage', this)">Engage</a>
     <a class="nav-link" onclick="switchTab('agents', this)">Agents</a>
     <a class="nav-link" onclick="switchTab('email-campaigns', this)">E-mail campaigns</a>
     <a class="nav-link" onclick="switchTab('linkedin-campaigns', this)">LinkedIn campaigns</a>
     <a class="nav-link" onclick="switchTab('create-campaign', this)">Create campaign</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
-    <a class="nav-link" onclick="switchTab('kohort-attribution', this)">Kohort attribution</a>
   </nav>
 </aside>
 
@@ -586,7 +586,7 @@
 <script>
   const TAB_TITLES = {
     "overview":        "Overview",
-    "attract":         "Attract",
+    "attract":         "E-mail growth",
     "engage":          "Engage",
     "agents":          "Agents",
     "email-campaigns":    "E-mail campaigns",
@@ -1469,7 +1469,7 @@
 
     el.innerHTML = `
       <div style="padding:24px 0 8px">
-        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Attract</div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">E-mail growth</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:32px">How our audience grows each week.</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
