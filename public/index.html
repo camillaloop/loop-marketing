@@ -1371,13 +1371,14 @@
         const numId  = chId ? ` id="att-${loop.id}-${chId}"` : "";
         const convId = chId ? ` id="att-${loop.id}-conv-${chId}"` : "";
         const cacId  = chId ? ` id="att-${loop.id}-cac-${chId}"` : "";
+        const revId  = chId ? ` id="att-${loop.id}-rev-${chId}"` : "";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
             <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
             <td class="att-ch-val"${cacId}>–</td>
             <td class="att-ch-val"${convId}>${escHtml(ch.converted)}</td>
-            <td class="att-ch-val">–</td>
+            <td class="att-ch-val"${revId}>–</td>
           </tr>`;
       }).join("");
 
@@ -1478,15 +1479,20 @@
             cel.textContent = count > 0 ? count : "–";
           }
           // Calculate CAC = channel cost / conversions
-          const cacEl   = document.getElementById(`att-${loopId}-cac-${ch}`);
-          const cost    = (CHANNEL_COSTS[loopId] || {})[ch];
+          const cacEl = document.getElementById(`att-${loopId}-cac-${ch}`);
+          const cost  = (CHANNEL_COSTS[loopId] || {})[ch];
           if (cacEl) {
             if (cost != null && count > 0) {
-              const cac = Math.round(cost / count);
-              cacEl.textContent = cac.toLocaleString("sv-SE") + " kr";
+              cacEl.textContent = Math.round(cost / count).toLocaleString("sv-SE") + " kr";
             } else if (cost != null) {
               cacEl.textContent = "–";
             }
+          }
+          // Revenue from Stripe
+          const revEl  = document.getElementById(`att-${loopId}-rev-${ch}`);
+          const revAmt = d.revenue?.[ch];
+          if (revEl && revAmt != null) {
+            revEl.textContent = revAmt > 0 ? revAmt.toLocaleString("sv-SE") + " kr" : "–";
           }
         });
       }

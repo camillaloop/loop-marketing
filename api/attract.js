@@ -19,6 +19,47 @@ const CONVERTED_RULES = {
   ind: (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
 };
 
+// Fetch active subscription amount (in SEK) per email from Stripe
+// Returns { email: amountSEK }
+async function fetchStripeRevenue(emails, stripeKey) {
+  if (!stripeKey || emails.length === 0) return {};
+  const auth   = "Basic " + Buffer.from(`${stripeKey}:`).toString("base64");
+  const EUR_SEK = 11.0; // approximate rate
+
+  const results = await Promise.allSettled(emails.map(async email => {
+    // 1. Find customer
+    const cr = await fetch(
+      `https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`,
+      { headers: { Authorization: auth } }
+    );
+    if (!cr.ok) return [email, 0];
+    const cd = await cr.json();
+    const cust = cd.data?.[0];
+    if (!cust) return [email, 0];
+
+    // 2. Get active subscription
+    const sr = await fetch(
+      `https://api.stripe.com/v1/subscriptions?customer=${cust.id}&status=active&limit=1`,
+      { headers: { Authorization: auth } }
+    );
+    if (!sr.ok) return [email, 0];
+    const sd = await sr.json();
+    const sub = sd.data?.[0];
+    if (!sub) return [email, 0];
+
+    const amount   = (sub.plan?.amount || 0) / 100; // cents → units
+    const currency = (sub.plan?.currency || "sek").toLowerCase();
+    const amountSEK = currency === "eur" ? Math.round(amount * EUR_SEK) : Math.round(amount);
+    return [email, amountSEK];
+  }));
+
+  const map = {};
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) map[r.value[0]] = r.value[1];
+  }
+  return map;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=300");
@@ -120,7 +161,22 @@ module.exports = async function handler(req, res) {
 
     const netGrowth = recentMembers.length - allUnsubscribed.length;
 
-    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, convertedEmails, channels: counts };
+    // Fetch Stripe revenue for all converted emails
+    const allConvertedEmails = [
+      ...convertedEmails.apollo,
+      ...convertedEmails.linkedin,
+      ...convertedEmails.organic,
+    ];
+    const revenueMap = await fetchStripeRevenue(allConvertedEmails, process.env.STRIPE_SECRET_KEY);
+
+    const revenue = { apollo: 0, linkedin: 0, organic: 0 };
+    for (const ch of ["apollo", "linkedin", "organic"]) {
+      for (const email of convertedEmails[ch]) {
+        revenue[ch] += revenueMap[email] || 0;
+      }
+    }
+
+    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, convertedEmails, revenue, channels: counts };
   }
 
   const results = await Promise.allSettled([
