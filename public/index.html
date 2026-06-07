@@ -359,15 +359,16 @@
       display: none; position: fixed; z-index: 500;
       background: #fff; border: 1px solid rgba(0,0,0,0.12);
       border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.13);
-      padding: 16px 20px; min-width: 260px; max-width: 400px;
-      max-height: 60vh; display: none; flex-direction: column;
+      padding: 16px 20px 12px; min-width: 260px; max-width: 380px;
+      max-height: 50vh;
+      flex-direction: column;
     }
     #conv-popup.visible { display: flex; }
-    #conv-popup h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); flex-shrink: 0; }
-    #conv-popup ul { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+    #conv-popup h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); flex-shrink: 0; padding-right: 20px; }
+    #conv-popup ul { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; min-height: 0; }
     #conv-popup li { font-size: 12px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
     #conv-popup li:last-child { border-bottom: none; }
-    #conv-popup-close { position: absolute; top: 10px; right: 14px; cursor: pointer; font-size: 16px; color: var(--muted); background: none; border: none; }
+    #conv-popup-close { position: absolute; top: 10px; right: 12px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); background: none; border: none; padding: 0; }
 
     /* ── Agents page ── */
     .agents-card {
@@ -1968,16 +1969,20 @@
         emails.map(em => `<li>${em}</li>`).join("");
       document.getElementById("conv-popup-count").textContent =
         `${emails.length} konverterad${emails.length !== 1 ? "e" : ""}`;
+      // Show first so we can measure real height
       popup.classList.add("visible");
-      // Position: below link if room, else above
-      const rect    = link.getBoundingClientRect();
-      const popH    = Math.min(popup.scrollHeight, window.innerHeight * 0.6);
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const top = spaceBelow > popH + 10
-        ? rect.bottom + window.scrollY + 6
-        : rect.top + window.scrollY - popH - 6;
+      const rect = link.getBoundingClientRect();
+      const popW = popup.offsetWidth;
+      const popH = popup.offsetHeight;
+      // Prefer below, flip above if not enough room
+      let top  = rect.bottom + 6;
+      let left = rect.left;
+      if (top + popH > window.innerHeight - 10) top = rect.top - popH - 6;
+      if (top < 10) top = 10;
+      if (left + popW > window.innerWidth - 10) left = window.innerWidth - popW - 10;
+      if (left < 10) left = 10;
       popup.style.top  = top + "px";
-      popup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 420) + "px";
+      popup.style.left = left + "px";
       return;
     }
     if (popup && !popup.contains(e.target)) popup.classList.remove("visible");
