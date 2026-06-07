@@ -1344,14 +1344,15 @@
       const d = ATTRACT_DATA[loop.id] || {};
 
       const rows = (d.channels || []).map(ch => {
-        const chId  = ATTRACT_CH_IDS[ch.name];
-        const numId = chId ? ` id="att-${loop.id}-${chId}"` : "";
+        const chId   = ATTRACT_CH_IDS[ch.name];
+        const numId  = chId ? ` id="att-${loop.id}-${chId}"` : "";
+        const convId = chId ? ` id="att-${loop.id}-conv-${chId}"` : "";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
             <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
             <td class="att-ch-val">${escHtml(ch.cost)}</td>
-            <td class="att-ch-val">${escHtml(ch.converted)}</td>
+            <td class="att-ch-val"${convId}>${escHtml(ch.converted)}</td>
             <td class="att-ch-val">${escHtml(ch.cac)}</td>
           </tr>`;
       }).join("");
@@ -1440,6 +1441,12 @@
       set(`att-${loopId}-apollo`,    d.channels.apollo);
       set(`att-${loopId}-linkedin`,  d.channels.linkedin);
       set(`att-${loopId}-organic`,   d.channels.organic);
+      // Converted per channel
+      if (d.converted) {
+        set(`att-${loopId}-conv-apollo`,   d.converted.apollo  || "–");
+        set(`att-${loopId}-conv-linkedin`, d.converted.linkedin || "–");
+        set(`att-${loopId}-conv-organic`,  d.converted.organic  || "–");
+      }
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
         netEl.textContent = d.netGrowth;

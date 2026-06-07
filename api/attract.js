@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
   async function fetchListData(listId) {
     const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(
-        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,total_items`,
+        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
         d => d.members || []
       ),
       getAll(
@@ -66,23 +66,33 @@ module.exports = async function handler(req, res) {
       return [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t));
     });
 
-    const counts = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
+    const counts     = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
+    const converted  = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
 
     for (const m of recentMembers) {
-      const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      const tags   = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      const pliro  = (m.merge_fields?.PLIROSSTAT || "").toLowerCase().trim();
+      const isConv = pliro === "active";
 
+      let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
-        counts.apollo++;
+        channel = "apollo";
       } else if (tags.has("source: linkedin newsletter") || tags.has("linkedin lead gen")) {
-        counts.linkedin++;
+        channel = "linkedin";
       } else {
-        counts.organic++;
+        channel = "organic";
+      }
+
+      counts[channel]++;
+      if (isConv) {
+        converted[channel]++;
+        converted.total++;
       }
     }
 
     const netGrowth = recentMembers.length - allUnsubscribed.length;
 
-    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, channels: counts };
+    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, channels: counts };
   }
 
   const results = await Promise.allSettled([
