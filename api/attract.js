@@ -73,7 +73,18 @@ module.exports = async function handler(req, res) {
       const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
       const pliroStat  = (m.merge_fields?.PLIROSSTAT || "").toLowerCase().trim();
       const pliroStart = (m.merge_fields?.PLIROSSTRT || "").trim();
-      const pliroStartTime = pliroStart ? new Date(pliroStart + "T00:00:00Z").getTime() : 0;
+      // Parse both YYYY-MM-DD and MM/DD/YYYY formats
+      function parsePliroDate(s) {
+        if (!s) return 0;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00Z").getTime();
+        const parts = s.split("/");
+        if (parts.length === 3) {
+          const [mo, da, yr] = parts;
+          return new Date(`${yr}-${mo.padStart(2,"0")}-${da.padStart(2,"0")}T00:00:00Z`).getTime();
+        }
+        return 0;
+      }
+      const pliroStartTime = parsePliroDate(pliroStart);
       const isConv = pliroStat === "active" && pliroStartTime >= weekStartTime;
 
       let channel;
