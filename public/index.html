@@ -2222,7 +2222,12 @@
   // ── Converted email popup ──────────────────────────────────────────────────
   document.addEventListener("click", e => {
     const popup = document.getElementById("conv-popup");
-    const link  = e.target.closest(".conv-link");
+    // Close button
+    if (e.target.id === "conv-popup-close") {
+      if (popup) popup.classList.remove("visible");
+      return;
+    }
+    const link = e.target.closest(".conv-link");
     if (link) {
       e.preventDefault();
       const emails = (link.dataset.emails || "").split(",").filter(Boolean);
@@ -2247,9 +2252,6 @@
       return;
     }
     if (popup && !popup.contains(e.target)) popup.classList.remove("visible");
-  });
-  document.getElementById("conv-popup-close").addEventListener("click", () => {
-    document.getElementById("conv-popup").classList.remove("visible");
   });
 
   // Boot
