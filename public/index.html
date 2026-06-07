@@ -1354,6 +1354,11 @@
   // Channel name → DOM ID suffix used for live cells
   const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic" };
 
+  // Weekly channel costs (SEK) per loop — used to calculate CAC
+  const CHANNEL_COSTS = {
+    vc: { linkedin: 2500 },
+  };
+
   function renderAttractPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
@@ -1365,13 +1370,14 @@
         const chId   = ATTRACT_CH_IDS[ch.name];
         const numId  = chId ? ` id="att-${loop.id}-${chId}"` : "";
         const convId = chId ? ` id="att-${loop.id}-conv-${chId}"` : "";
+        const cacId  = chId ? ` id="att-${loop.id}-cac-${chId}"` : "";
         return `
           <tr class="att-ch-row">
             <td class="att-ch-name">${escHtml(ch.name)}</td>
             <td class="att-ch-val"${numId}>${escHtml(ch.number)}</td>
-            <td class="att-ch-val">${escHtml(ch.cost)}</td>
+            <td class="att-ch-val"${cacId}>–</td>
             <td class="att-ch-val"${convId}>${escHtml(ch.converted)}</td>
-            <td class="att-ch-val">${escHtml(ch.cac)}</td>
+            <td class="att-ch-val">–</td>
           </tr>`;
       }).join("");
 
@@ -1395,9 +1401,9 @@
                 <tr>
                   <th class="att-ch-head att-ch-name">Channel</th>
                   <th class="att-ch-head att-ch-val">Number</th>
-                  <th class="att-ch-head att-ch-val">Cost</th>
-                  <th class="att-ch-head att-ch-val">Converted</th>
                   <th class="att-ch-head att-ch-val">CAC</th>
+                  <th class="att-ch-head att-ch-val">Converted</th>
+                  <th class="att-ch-head att-ch-val">Revenue</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -1467,9 +1473,20 @@
           const count  = d.converted[ch] || 0;
           const emails = d.convertedEmails?.[ch] || [];
           if (count > 0 && emails.length > 0) {
-            cel.innerHTML = `<a href="#" class="conv-link" data-emails="${escHtml(emails.join(","))}">${count}</a>`;
+            cel.innerHTML = `<a href="#" class="conv-link" data-emails="${emails.join(",")}">${count}</a>`;
           } else {
             cel.textContent = count > 0 ? count : "–";
+          }
+          // Calculate CAC = channel cost / conversions
+          const cacEl   = document.getElementById(`att-${loopId}-cac-${ch}`);
+          const cost    = (CHANNEL_COSTS[loopId] || {})[ch];
+          if (cacEl) {
+            if (cost != null && count > 0) {
+              const cac = Math.round(cost / count);
+              cacEl.textContent = cac.toLocaleString("sv-SE") + " kr";
+            } else if (cost != null) {
+              cacEl.textContent = "–";
+            }
           }
         });
       }
