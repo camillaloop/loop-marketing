@@ -10,6 +10,15 @@ const LISTS = {
   ind: "371a11bf72",
 };
 
+// Per-list rule for what counts as "converted"
+// fn receives merge_fields, returns true/false
+const CONVERTED_RULES = {
+  il:  (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
+  vc:  (mf) => (mf.PLIROPLAN  || "").toLowerCase() === "startup",
+  el:  (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
+  ind: (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
+};
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=300");
@@ -47,7 +56,8 @@ module.exports = async function handler(req, res) {
     return items;
   }
 
-  async function fetchListData(listId) {
+  async function fetchListData(listId, listKey) {
+    const isConverted = CONVERTED_RULES[listKey] || CONVERTED_RULES.il;
     const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(
         `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
@@ -71,8 +81,7 @@ module.exports = async function handler(req, res) {
 
     for (const m of recentMembers) {
       const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
-      const pliroStat  = (m.merge_fields?.PLIROSSTAT || "").toLowerCase().trim();
-      const pliroStart = (m.merge_fields?.PLIROSSTRT || "").trim();
+      const mf         = m.merge_fields || {};
       // Parse both YYYY-MM-DD and MM/DD/YYYY formats
       function parsePliroDate(s) {
         if (!s) return 0;
@@ -84,8 +93,9 @@ module.exports = async function handler(req, res) {
         }
         return 0;
       }
-      const pliroStartTime = parsePliroDate(pliroStart);
-      const isConv = pliroStat === "active" && pliroStartTime >= weekStartTime;
+      const pliroStartTime = parsePliroDate(mf.PLIROSSTRT || "");
+      const pliroStartedThisWeek = pliroStartTime >= weekStartTime;
+      const isConv = pliroStartedThisWeek && isConverted(mf);
 
       let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
@@ -109,10 +119,10 @@ module.exports = async function handler(req, res) {
   }
 
   const results = await Promise.allSettled([
-    fetchListData(LISTS.il),
-    fetchListData(LISTS.vc),
-    fetchListData(LISTS.el),
-    fetchListData(LISTS.ind),
+    fetchListData(LISTS.il,  "il"),
+    fetchListData(LISTS.vc,  "vc"),
+    fetchListData(LISTS.el,  "el"),
+    fetchListData(LISTS.ind, "ind"),
   ]);
 
   const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, other: 0 }, error: err });
