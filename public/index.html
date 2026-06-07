@@ -579,6 +579,7 @@
 
     loadVcData();
     loadIlData();
+    loadElData();
   }
 
   let vcDataCache = null;
@@ -735,6 +736,70 @@
                                  weekDelta  >= 0 ? "green" : "red",
                                  "i tid", weekDelta >= 0));
     setIl("mrrGrowthMonth", cell(fmtDelta(monthDelta),
+                                 monthDelta >= 0 ? "green" : "red",
+                                 "i tid", monthDelta >= 0));
+  }
+
+  // ── Energy Loop (Google Sheets MRR) ─────────────────────────────────────────
+  let elDataCache = null;
+
+  async function loadElData(force = false) {
+    if (elDataCache && !force) { renderElMetrics(elDataCache); return; }
+    try {
+      const r = await fetch("https://energyloop-news.vercel.app/api/mrr");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      elDataCache = await r.json();
+      renderElMetrics(elDataCache);
+    } catch (e) {
+      ["mrrGrowthWeek", "mrrGrowthMonth"].forEach(key => {
+        const el = document.getElementById(`ov-el-${key}`);
+        if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
+      });
+      console.error("[el mrr]", e);
+    }
+  }
+
+  function renderElMetrics(d) {
+    if (!d) return;
+    const currentMrr    = d.currentMrr    || 0;
+    const weekStartMrr  = d.mondayMrr     || 0;
+    const monthStartMrr = d.monthStartMrr || 0;
+
+    const WEEK_GOAL  = 2000;
+    const MONTH_GOAL = 8000;
+
+    const jsDay  = new Date().getDay();
+    const dayNum = jsDay === 0 ? 7 : jsDay;
+    const weekActual   = Math.round(currentMrr - weekStartMrr);
+    const weekExpected = Math.round((dayNum / 7) * WEEK_GOAL);
+    const weekDelta    = weekActual - weekExpected;
+
+    const today       = new Date();
+    const dayOfMonth  = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const monthActual   = Math.round(currentMrr - monthStartMrr);
+    const monthExpected = Math.round((dayOfMonth / daysInMonth) * MONTH_GOAL);
+    const monthDelta    = monthActual - monthExpected;
+
+    const fmtDelta = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toLocaleString("sv-SE") + " kr";
+
+    function setEl(key, innerHTML) {
+      const el = document.getElementById(`ov-el-${key}`);
+      if (el) el.innerHTML = innerHTML;
+    }
+    function cell(valueHtml, valueCls, goalText, isOk) {
+      const valSpan  = `<span class="ov-row-actual ${valueCls || ""}">${valueHtml}</span>`;
+      if (goalText == null) return valSpan;
+      const goalSpan = `<span class="ov-row-goal-txt">/ ${goalText}</span>`;
+      const dot      = isOk == null ? "" :
+        `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
+      return valSpan + goalSpan + dot;
+    }
+
+    setEl("mrrGrowthWeek",  cell(fmtDelta(weekDelta),
+                                 weekDelta  >= 0 ? "green" : "red",
+                                 "i tid", weekDelta >= 0));
+    setEl("mrrGrowthMonth", cell(fmtDelta(monthDelta),
                                  monthDelta >= 0 ? "green" : "red",
                                  "i tid", monthDelta >= 0));
   }
