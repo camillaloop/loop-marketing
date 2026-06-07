@@ -351,6 +351,21 @@
     .att-ch-row:last-child td { border-bottom: none; }
     .att-ch-name { width: 36%; }
     .att-ch-val  { text-align: right; color: var(--muted); width: 16%; }
+    .conv-link   { color: var(--text); font-weight: 700; text-decoration: underline dotted; cursor: pointer; }
+    .conv-link:hover { color: #1a7a3a; }
+
+    /* Converted email popup */
+    #conv-popup {
+      display: none; position: fixed; z-index: 500;
+      background: #fff; border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+      padding: 16px 20px; min-width: 260px; max-width: 400px;
+    }
+    #conv-popup h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+    #conv-popup ul { list-style: none; padding: 0; margin: 0; }
+    #conv-popup li { font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    #conv-popup li:last-child { border-bottom: none; }
+    #conv-popup-close { position: absolute; top: 10px; right: 14px; cursor: pointer; font-size: 16px; color: var(--muted); background: none; border: none; }
 
     /* ── Agents page ── */
     .agents-card {
@@ -1441,11 +1456,19 @@
       set(`att-${loopId}-apollo`,    d.channels.apollo);
       set(`att-${loopId}-linkedin`,  d.channels.linkedin);
       set(`att-${loopId}-organic`,   d.channels.organic);
-      // Converted per channel
+      // Converted per channel — clickable if emails available
       if (d.converted) {
-        set(`att-${loopId}-conv-apollo`,   d.converted.apollo  || "–");
-        set(`att-${loopId}-conv-linkedin`, d.converted.linkedin || "–");
-        set(`att-${loopId}-conv-organic`,  d.converted.organic  || "–");
+        ["apollo", "linkedin", "organic"].forEach(ch => {
+          const cel = document.getElementById(`att-${loopId}-conv-${ch}`);
+          if (!cel) return;
+          const count  = d.converted[ch] || 0;
+          const emails = d.convertedEmails?.[ch] || [];
+          if (count > 0 && emails.length > 0) {
+            cel.innerHTML = `<a href="#" class="conv-link" data-emails="${escHtml(emails.join(","))}">${count}</a>`;
+          } else {
+            cel.textContent = count > 0 ? count : "–";
+          }
+        });
       }
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
@@ -1934,6 +1957,35 @@
 
   // Boot
   renderOverviewPage();
+
+  // ── Converted email popup ──────────────────────────────────────────────────
+  const convPopup = document.getElementById("conv-popup");
+  document.addEventListener("click", e => {
+    const link = e.target.closest(".conv-link");
+    if (link) {
+      e.preventDefault();
+      const emails = (link.dataset.emails || "").split(",").filter(Boolean);
+      document.getElementById("conv-popup-list").innerHTML =
+        emails.map(em => `<li>${em}</li>`).join("");
+      document.getElementById("conv-popup-count").textContent =
+        `${emails.length} konverterad${emails.length !== 1 ? "e" : ""}`;
+      const rect = link.getBoundingClientRect();
+      convPopup.style.top  = (rect.bottom + window.scrollY + 6) + "px";
+      convPopup.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 420) + "px";
+      convPopup.style.display = "block";
+      return;
+    }
+    if (!convPopup.contains(e.target)) convPopup.style.display = "none";
+  });
+  document.getElementById("conv-popup-close").addEventListener("click", () => {
+    convPopup.style.display = "none";
+  });
 </script>
+
+<div id="conv-popup">
+  <button id="conv-popup-close">&times;</button>
+  <h4 id="conv-popup-count"></h4>
+  <ul id="conv-popup-list"></ul>
+</div>
 </body>
 </html>

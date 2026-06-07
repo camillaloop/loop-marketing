@@ -76,8 +76,9 @@ module.exports = async function handler(req, res) {
       return [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t));
     });
 
-    const counts     = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-    const converted  = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
+    const counts          = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
+    const converted       = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
+    const convertedEmails = { apollo: [], linkedin: [], organic: [] };
 
     for (const m of recentMembers) {
       const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
@@ -110,12 +111,13 @@ module.exports = async function handler(req, res) {
       if (isConv) {
         converted[channel]++;
         converted.total++;
+        if (convertedEmails[channel]) convertedEmails[channel].push(m.email_address);
       }
     }
 
     const netGrowth = recentMembers.length - allUnsubscribed.length;
 
-    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, channels: counts };
+    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, convertedEmails, channels: counts };
   }
 
   const results = await Promise.allSettled([
