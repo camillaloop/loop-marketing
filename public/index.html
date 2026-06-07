@@ -478,6 +478,63 @@
       gap: 16px;
     }
 
+    /* ── Kohort attribution ── */
+    .coh-section-title {
+      font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+    }
+    .coh-section-sub {
+      font-size: 13px; color: var(--muted); margin-bottom: 28px;
+    }
+    .coh-summary-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px;
+    }
+    .coh-summary-card {
+      background: var(--sidebar-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .coh-summary-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .coh-summary-value { font-size: 22px; font-weight: 700; color: var(--text); }
+    .coh-summary-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .coh-filter-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .coh-filter-label { font-size: 12px; color: var(--muted); }
+    .coh-filter-btn {
+      font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 20px;
+      border: 1px solid var(--border); background: none; cursor: pointer; color: var(--muted);
+      transition: background 0.12s, color 0.12s;
+    }
+    .coh-filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .coh-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    .coh-table {
+      width: 100%; border-collapse: collapse; font-size: 12px; min-width: 700px;
+    }
+    .coh-th {
+      text-align: left; font-weight: 600; font-size: 10px; color: var(--muted);
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
+      background: var(--sidebar-bg); white-space: nowrap;
+    }
+    .coh-th.right { text-align: right; }
+    .coh-td {
+      padding: 9px 12px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle; white-space: nowrap;
+    }
+    .coh-td.right { text-align: right; }
+    .coh-td.muted { color: var(--muted); }
+    .coh-week-cell {
+      font-weight: 600; font-size: 11px; color: var(--text);
+    }
+    .coh-channel-dot {
+      display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 5px;
+      vertical-align: middle;
+    }
+    .coh-pending { color: #ccc; font-size: 14px; line-height: 1; }
+    .coh-conv-count { font-weight: 600; color: var(--text); }
+    .coh-conv-rate  { font-size: 10px; color: var(--muted); margin-left: 3px; }
+    .coh-rev-amt    { font-size: 10px; color: #3b6d11; display: block; margin-top: 1px; }
+    .coh-row-last td { border-bottom: 2px solid var(--border); }
+    .coh-row-week-first td { padding-top: 13px; }
+
     /* ── Mobile ── */
     @media (max-width: 640px) {
       .content { margin-left: 0; }
@@ -511,6 +568,7 @@
     <a class="nav-link" onclick="switchTab('linkedin-campaigns', this)">LinkedIn campaigns</a>
     <a class="nav-link" onclick="switchTab('create-campaign', this)">Create campaign</a>
     <a class="nav-link" onclick="switchTab('historic-data', this)">Historic data</a>
+    <a class="nav-link" onclick="switchTab('kohort-attribution', this)">Kohort attribution</a>
   </nav>
 </aside>
 
@@ -535,6 +593,7 @@
     "linkedin-campaigns": "LinkedIn campaigns",
     "create-campaign":    "Create campaign",
     "historic-data":      "Historic data",
+    "kohort-attribution": "Kohort attribution",
   };
 
   function switchTab(tab, el) {
@@ -550,6 +609,7 @@
     if (tab === "linkedin-campaigns") renderLinkedInCampaignsPage();
     if (tab === "create-campaign")    renderCreateCampaignPage();
     if (tab === "historic-data")      renderHistoricData();
+    if (tab === "kohort-attribution") renderKohortPage();
   }
 
   // ── Overview: four loops ──────────────────────────────────────────────────
@@ -1982,6 +2042,184 @@
       btn.textContent = "✓ Skapa Mailchimp-utkast";
       btn.disabled = false;
     }
+  }
+
+  // ── Kohort attribution ───────────────────────────────────────────────────────
+
+  let kohortCache    = null;
+  let kohortChannel  = "all"; // "all" | "Apollo" | "LinkedIn" | "Organic"
+
+  function renderKohortPage() {
+    const el = document.getElementById("main-content");
+    if (!el) return;
+    el.innerHTML = `
+      <div style="padding:24px 0 8px">
+        <div class="coh-section-title">Kohort attribution</div>
+        <div class="coh-section-sub">Impact Loop VC — konverteringar per vecka och kanal sedan mars 2026</div>
+        <div id="coh-body"><span style="font-size:13px;color:var(--muted)">Laddar…</span></div>
+      </div>`;
+    loadKohortData();
+  }
+
+  async function loadKohortData(force = false) {
+    if (kohortCache && !force) { renderKohortBody(kohortCache); return; }
+    const body = document.getElementById("coh-body");
+    if (body) body.innerHTML = `<span style="font-size:13px;color:var(--muted)">Laddar… (kan ta upp till 30 s)</span>`;
+    try {
+      const r = await fetch("/api/cohort-vc");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      kohortCache = await r.json();
+      renderKohortBody(kohortCache);
+    } catch(e) {
+      const body = document.getElementById("coh-body");
+      if (body) body.innerHTML = `<span style="color:#b33;font-size:13px">Fel: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  function renderKohortBody(data) {
+    const body = document.getElementById("coh-body");
+    if (!body) return;
+    const rows = data.rows || [];
+    const ltv  = data.ltv  || 0;
+    const WINDOWS = ["0–30d", "31–60d", "61–90d", "90d+"];
+    const CH_COLOR = { Apollo: "#3b6d11", LinkedIn: "#0a66c2", Organic: "#888" };
+
+    // Filter by selected channel
+    const visible = kohortChannel === "all"
+      ? rows
+      : rows.filter(r => r.channel === kohortChannel);
+
+    // Summary calculations
+    const totalAcquired   = visible.reduce((s, r) => s + (r.acquired || 0), 0);
+    let   totalConverted  = 0;
+    let   totalRevenue    = 0;
+    let   totalCost       = 0;
+    for (const r of visible) {
+      for (const w of WINDOWS) {
+        if (r.cohorts[w] != null) totalConverted += r.cohorts[w];
+        if (r.revenue[w] != null) totalRevenue   += r.revenue[w];
+      }
+      totalCost += r.cost || 0;
+    }
+    const cac        = totalConverted > 0 ? Math.round(totalCost / totalConverted) : 0;
+    const ltvCacRatio = cac > 0 && ltv > 0 ? Math.round((ltv / cac) * 10) / 10 : 0;
+    const fmtKr = n => n > 0 ? n.toLocaleString("sv-SE") + " kr" : "–";
+
+    // Summary cards
+    const summaryHtml = `
+      <div class="coh-summary-grid">
+        <div class="coh-summary-card">
+          <div class="coh-summary-label">LTV (beräknat)</div>
+          <div class="coh-summary-value">${fmtKr(ltv)}</div>
+          <div class="coh-summary-sub">450 kr/mån ÷ 8.7% churn</div>
+        </div>
+        <div class="coh-summary-card">
+          <div class="coh-summary-label">Totalt inhämtade</div>
+          <div class="coh-summary-value">${totalAcquired.toLocaleString("sv-SE")}</div>
+          <div class="coh-summary-sub">mailadresser sedan v.10</div>
+        </div>
+        <div class="coh-summary-card">
+          <div class="coh-summary-label">Totalt konverterade</div>
+          <div class="coh-summary-value">${totalConverted.toLocaleString("sv-SE")}</div>
+          <div class="coh-summary-sub">betalande startups</div>
+        </div>
+        <div class="coh-summary-card">
+          <div class="coh-summary-label">CAC (totalt)</div>
+          <div class="coh-summary-value">${fmtKr(cac)}</div>
+          <div class="coh-summary-sub">${ltvCacRatio > 0 ? "LTV:CAC " + ltvCacRatio + "×" : "–"}</div>
+        </div>
+      </div>`;
+
+    // Channel filter
+    const channels = ["all", "Apollo", "LinkedIn", "Organic"];
+    const filterHtml = `
+      <div class="coh-filter-row">
+        <span class="coh-filter-label">Kanal:</span>
+        ${channels.map(ch => `
+          <button class="coh-filter-btn${kohortChannel === ch ? " active" : ""}"
+            onclick="setKohortChannel('${ch}')">${ch === "all" ? "Alla" : escHtml(ch)}</button>`
+        ).join("")}
+        <button onclick="loadKohortData(true)" style="margin-left:auto;font-size:11px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 10px;cursor:pointer">↻ Uppdatera</button>
+      </div>`;
+
+    // Group rows by week
+    const weekOrder = [];
+    const weekMap   = {};
+    for (const r of visible) {
+      if (!weekMap[r.week]) { weekMap[r.week] = []; weekOrder.push(r.week); }
+      weekMap[r.week].push(r);
+    }
+
+    // Table
+    const windowLabel = { "0–30d": "0–30 d", "31–60d": "31–60 d", "61–90d": "61–90 d", "90d+": "90d+" };
+    const theadHtml = `
+      <thead>
+        <tr>
+          <th class="coh-th" style="width:90px">Vecka</th>
+          <th class="coh-th" style="width:95px">Kanal</th>
+          <th class="coh-th right">Inhämtade</th>
+          <th class="coh-th right">Kostnad</th>
+          ${WINDOWS.map(w => `<th class="coh-th right">${windowLabel[w]}</th>`).join("")}
+          <th class="coh-th right">Avg dagar</th>
+        </tr>
+      </thead>`;
+
+    const tbodyRows = weekOrder.map(week => {
+      const wRows = weekMap[week];
+      return wRows.map((r, idx) => {
+        const isFirst = idx === 0;
+        const isLast  = idx === wRows.length - 1;
+        const dot     = CH_COLOR[r.channel]
+          ? `<span class="coh-channel-dot" style="background:${CH_COLOR[r.channel]}"></span>`
+          : "";
+        const costCell = r.cost > 0 ? r.cost.toLocaleString("sv-SE") + " kr" : "–";
+        const windowCells = WINDOWS.map(w => {
+          const count = r.cohorts[w];
+          const rev   = r.revenue[w];
+          if (count === null) return `<td class="coh-td right"><span class="coh-pending" title="Inte mätbar ännu">·</span></td>`;
+          if (count === 0)    return `<td class="coh-td right muted">–</td>`;
+          const rate  = r.acquired > 0 ? Math.round((count / r.acquired) * 100) : 0;
+          const revStr = rev > 0 ? `<span class="coh-rev-amt">${rev.toLocaleString("sv-SE")} kr</span>` : "";
+          return `<td class="coh-td right"><span class="coh-conv-count">${count}</span><span class="coh-conv-rate">(${rate}%)</span>${revStr}</td>`;
+        }).join("");
+        const avgCell = r.avgDaysToConvert != null
+          ? `<td class="coh-td right muted">${r.avgDaysToConvert} d</td>`
+          : `<td class="coh-td right muted">–</td>`;
+        const rowCls = [
+          isFirst ? "coh-row-week-first" : "",
+          isLast  ? "coh-row-last"       : "",
+        ].filter(Boolean).join(" ");
+        return `
+          <tr class="${rowCls}">
+            <td class="coh-td coh-week-cell">${isFirst ? escHtml(week) : ""}</td>
+            <td class="coh-td">${dot}${escHtml(r.channel)}</td>
+            <td class="coh-td right">${r.acquired}</td>
+            <td class="coh-td right muted">${costCell}</td>
+            ${windowCells}
+            ${avgCell}
+          </tr>`;
+      }).join("");
+    }).join("");
+
+    const tableHtml = visible.length === 0
+      ? `<div style="font-size:13px;color:var(--muted);padding:24px 0">Inga rader för vald kanal.</div>`
+      : `<div class="coh-table-wrap">
+           <table class="coh-table">${theadHtml}<tbody>${tbodyRows}</tbody></table>
+         </div>`;
+
+    const legend = `
+      <div style="font-size:11px;color:var(--muted);margin-top:12px">
+        <strong>·</strong> = fönstret är inte mätbart ännu &nbsp;|&nbsp;
+        Procent = andel av inhämtade i det fönstret &nbsp;|&nbsp;
+        Grön = intäkt från Stripe
+      </div>`;
+
+    body.innerHTML = summaryHtml + filterHtml + tableHtml + legend;
+  }
+
+  function setKohortChannel(ch) {
+    kohortChannel = ch;
+    if (kohortCache) renderKohortBody(kohortCache);
   }
 
   // ── Converted email popup ──────────────────────────────────────────────────
