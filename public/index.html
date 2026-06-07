@@ -1363,15 +1363,12 @@
           </div>
           <div class="att-card-body">
             <div class="att-email-goal">
-              Growth e-mail audience:
+              Net growth: <span id="att-${loop.id}-net">–</span>
             </div>
             <div class="att-email-goal">
               New e-mail addresses:
               <span class="att-email-count"><span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span> / ${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">per week</span>
-            </div>
-            <div class="att-email-goal" style="color:var(--muted);font-size:13px">
-              Net growth: <span id="att-${loop.id}-net">–</span>
             </div>
             <table class="att-ch-table">
               <thead>
