@@ -1375,6 +1375,42 @@
       }).join("")}`;
   }
 
+  // ── Attract / E-mail growth helpers ─────────────────────────────────────────
+
+  const ATTRACT_FIRST_MONDAY = "2026-06-02"; // Monday of V.23 2026 — earliest tracked week
+
+  function getCurrentMonday() {
+    const now = new Date();
+    const day = now.getUTCDay() || 7;
+    const d   = new Date(now);
+    d.setUTCDate(now.getUTCDate() - (day - 1));
+    d.setUTCHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function mondayToWeekLabel(mondayStr) {
+    const d   = new Date(mondayStr + "T00:00:00Z");
+    const day = d.getUTCDay() || 7;
+    const thu = new Date(d);
+    thu.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(thu.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((thu - yearStart) / 86400000 + 1) / 7);
+    return `V. ${week} ${thu.getUTCFullYear()}`;
+  }
+
+  function getAttractWeekOptions() {
+    const current = getCurrentMonday();
+    const first   = ATTRACT_FIRST_MONDAY;
+    const options = [];
+    let d = new Date(current + "T00:00:00Z");
+    const stop = new Date(first + "T00:00:00Z");
+    while (d >= stop) {
+      options.push(d.toISOString().slice(0, 10));
+      d.setUTCDate(d.getUTCDate() - 7);
+    }
+    return options; // newest first
+  }
+
   // ── Attract page ─────────────────────────────────────────────────────────────
   const ATTRACT_DATA = {
     il:  { emailGoal: "200", emailActual: "–", apolloDelivered: "–",
@@ -1422,9 +1458,17 @@
     ind: { apollo: 1259 },
   };
 
+  let attractCaches = {};                      // keyed by weekStart (YYYY-MM-DD)
+  let attractWeek   = getCurrentMonday();      // selected week
+
   function renderAttractPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
+
+    const weekOptions = getAttractWeekOptions();
+    const selectHtml  = weekOptions.map(monday =>
+      `<option value="${monday}"${monday === attractWeek ? " selected" : ""}>${mondayToWeekLabel(monday)}</option>`
+    ).join("");
 
     const cards = LOOPS.map(loop => {
       const d = ATTRACT_DATA[loop.id] || {};
@@ -1469,7 +1513,13 @@
 
     el.innerHTML = `
       <div style="padding:24px 0 8px">
-        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">E-mail growth</div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;flex-wrap:wrap">
+          <div style="font-size:20px;font-weight:700;color:var(--text)">E-mail growth</div>
+          <select id="attract-week-select" onchange="switchAttractWeek(this.value)"
+            style="padding:5px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+            ${selectHtml}
+          </select>
+        </div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:32px">How our audience grows each week.</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
@@ -1477,10 +1527,15 @@
     loadAttractData();
   }
 
-  let attractCache = null;
+  function switchAttractWeek(monday) {
+    attractWeek = monday;
+    // Re-render the page so cards get fresh "…" placeholders, then load
+    renderAttractPage();
+  }
 
-  async function loadAttractData(force = false) {
-    if (attractCache && !force) { renderAttractData(attractCache); return; }
+  async function loadAttractData() {
+    const week = attractWeek;
+    if (attractCaches[week]) { renderAttractData(attractCaches[week]); return; }
 
     LOOPS.forEach(loop => {
       ["apollo", "linkedin", "organic"].forEach(ch => {
@@ -1494,10 +1549,10 @@
     });
 
     try {
-      const r = await fetch("/api/attract");
+      const r = await fetch(`/api/attract?weekStart=${week}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      attractCache = await r.json();
-      renderAttractData(attractCache);
+      attractCaches[week] = await r.json();
+      renderAttractData(attractCaches[week]);
     } catch (e) {
       LOOPS.forEach(loop => {
         ["apollo", "linkedin", "organic"].forEach(ch => {

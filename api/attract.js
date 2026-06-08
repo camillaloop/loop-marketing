@@ -1,6 +1,9 @@
 /**
  * api/attract.js
- * GET /api/attract
+ * GET /api/attract[?weekStart=YYYY-MM-DD]
+ *
+ * If weekStart is provided, returns data for that specific week.
+ * Otherwise returns data for the current ISO week (Mon–Sun).
  */
 
 const LISTS = {
@@ -11,7 +14,6 @@ const LISTS = {
 };
 
 // Per-list rule for what counts as "converted"
-// fn receives merge_fields, returns true/false
 const CONVERTED_RULES = {
   il:  (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
   vc:  (mf) => (mf.PLIROPLAN  || "").toLowerCase() === "startup",
@@ -19,36 +21,32 @@ const CONVERTED_RULES = {
   ind: (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
 };
 
-// Fetch active subscription amount (in SEK) per email from Stripe
-// Returns { email: amountSEK }
 async function fetchStripeRevenue(emails, stripeKey) {
   if (!stripeKey || emails.length === 0) return {};
-  const auth   = "Basic " + Buffer.from(`${stripeKey}:`).toString("base64");
-  const EUR_SEK = 11.0; // approximate rate
+  const auth    = "Basic " + Buffer.from(`${stripeKey}:`).toString("base64");
+  const EUR_SEK = 11.0;
 
   const results = await Promise.allSettled(emails.map(async email => {
-    // 1. Find customer
     const cr = await fetch(
       `https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`,
       { headers: { Authorization: auth } }
     );
     if (!cr.ok) return [email, 0];
-    const cd = await cr.json();
+    const cd   = await cr.json();
     const cust = cd.data?.[0];
     if (!cust) return [email, 0];
 
-    // 2. Get active subscription
     const sr = await fetch(
       `https://api.stripe.com/v1/subscriptions?customer=${cust.id}&status=active&limit=1`,
       { headers: { Authorization: auth } }
     );
     if (!sr.ok) return [email, 0];
-    const sd = await sr.json();
+    const sd  = await sr.json();
     const sub = sd.data?.[0];
     if (!sub) return [email, 0];
 
-    const amount   = (sub.plan?.amount || 0) / 100; // cents → units
-    const currency = (sub.plan?.currency || "sek").toLowerCase();
+    const amount    = (sub.plan?.amount || 0) / 100;
+    const currency  = (sub.plan?.currency || "sek").toLowerCase();
     const amountSEK = currency === "eur" ? Math.round(amount * EUR_SEK) : Math.round(amount);
     return [email, amountSEK];
   }));
@@ -72,21 +70,34 @@ module.exports = async function handler(req, res) {
   const auth = "Basic " + Buffer.from(`anystring:${MAILCHIMP_API_KEY}`).toString("base64");
   const base = `https://${dc}.api.mailchimp.com/3.0`;
 
-  const now        = new Date();
-  const dayOfWeek  = now.getUTCDay();
-  const daysBack   = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart  = new Date(now);
-  weekStart.setUTCDate(now.getUTCDate() - daysBack);
-  weekStart.setUTCHours(0, 0, 0, 0);
-  const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
-  const weekStartTime = weekStart.getTime();
+  // ── Determine week window ──────────────────────────────────────────────────
+  const qWeekStart = req.query?.weekStart;
+  let weekStart;
 
+  if (qWeekStart && /^\d{4}-\d{2}-\d{2}$/.test(qWeekStart)) {
+    // Explicit week requested
+    weekStart = new Date(qWeekStart + "T00:00:00Z");
+  } else {
+    // Current ISO week (Mon = day 1)
+    const now       = new Date();
+    const dayOfWeek = now.getUTCDay();
+    const daysBack  = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    weekStart       = new Date(now);
+    weekStart.setUTCDate(now.getUTCDate() - daysBack);
+    weekStart.setUTCHours(0, 0, 0, 0);
+  }
+
+  const weekStartTime = weekStart.getTime();
+  const weekEndTime   = weekStartTime + 7 * 24 * 60 * 60 * 1000; // exclusive
+  const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
   async function getAll(url, getItems) {
     const items = [];
-    let offset = 0;
+    let offset  = 0;
     while (true) {
-      const sep = url.includes("?") ? "&" : "?";
-      const r = await fetch(`${url}${sep}count=500&offset=${offset}`, { headers: { Authorization: auth } });
+      const sep  = url.includes("?") ? "&" : "?";
+      const r    = await fetch(`${url}${sep}count=500&offset=${offset}`, { headers: { Authorization: auth } });
       if (!r.ok) break;
       const data = await r.json();
       const page = getItems(data);
@@ -99,29 +110,45 @@ module.exports = async function handler(req, res) {
 
   async function fetchListData(listId, listKey) {
     const isConverted = CONVERTED_RULES[listKey] || CONVERTED_RULES.il;
+
     const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(
-        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
+        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed` +
+        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
         d => d.members || []
       ),
       getAll(
-        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=unsubscribed&fields=members.email_address,members.unsubscribe_reason,total_items`,
+        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=unsubscribed` +
+        `&fields=members.email_address,members.last_changed,members.unsubscribe_reason,total_items`,
         d => d.members || []
       ),
     ]);
 
-    // New this week (timestamp_opt) OR tagged src-apollo-YYYY-MM (file imports)
+    // New in the selected week: timestamp_opt within [weekStart, weekEnd)
     const recentMembers = allChanged.filter(m => {
-      if (m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime) return true;
+      if (m.timestamp_opt) {
+        const t = new Date(m.timestamp_opt).getTime();
+        return t >= weekStartTime && t < weekEndTime;
+      }
+      // src-apollo file imports: only count for current week
+      const now = new Date();
+      const isCurrentWeek = weekStartTime <= now.getTime() && now.getTime() < weekEndTime;
+      if (!isCurrentWeek) return false;
       const tags = new Set((m.tags || []).map(t => t.name.toLowerCase()));
       return [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t));
+    });
+
+    // Unsubscribed within the selected week (use last_changed as proxy)
+    const weekUnsubscribed = allUnsubscribed.filter(m => {
+      if (!m.last_changed) return true; // no date info, include to be safe
+      const t = new Date(m.last_changed).getTime();
+      return t >= weekStartTime && t < weekEndTime;
     });
 
     const counts          = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
     const converted       = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
     const convertedEmails = { apollo: [], linkedin: [], organic: [] };
 
-    // Parse both YYYY-MM-DD and MM/DD/YYYY formats
     function parsePliroDate(s) {
       if (!s) return 0;
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00Z").getTime();
@@ -134,13 +161,16 @@ module.exports = async function handler(req, res) {
     }
 
     for (const m of recentMembers) {
-      const tags       = new Set((m.tags || []).map(t => t.name.toLowerCase()));
-      const mf         = m.merge_fields || {};
-      const joinedThisWeek = m.timestamp_opt && new Date(m.timestamp_opt).getTime() >= weekStartTime;
-      const pliroStartTime = parsePliroDate(mf.PLIROSSTRT || "");
-      const pliroStartedThisWeek = pliroStartTime >= weekStartTime;
-      // Converted = joined this week (real opt-in) AND Pliro started this week AND plan rule
-      const isConv = joinedThisWeek && pliroStartedThisWeek && isConverted(mf);
+      const tags  = new Set((m.tags || []).map(t => t.name.toLowerCase()));
+      const mf    = m.merge_fields || {};
+
+      const optTime = m.timestamp_opt ? new Date(m.timestamp_opt).getTime() : 0;
+      const joinedInWeek = optTime >= weekStartTime && optTime < weekEndTime;
+
+      const pliroStartTime      = parsePliroDate(mf.PLIROSSTRT || "");
+      const pliroStartedInWeek  = pliroStartTime >= weekStartTime && pliroStartTime < weekEndTime;
+
+      const isConv = joinedInWeek && pliroStartedInWeek && isConverted(mf);
 
       let channel;
       if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
@@ -159,9 +189,8 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const netGrowth = recentMembers.length - allUnsubscribed.length;
+    const netGrowth = recentMembers.length - weekUnsubscribed.length;
 
-    // Fetch Stripe revenue for all converted emails
     const allConvertedEmails = [
       ...convertedEmails.apollo,
       ...convertedEmails.linkedin,
@@ -176,7 +205,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return { total: recentMembers.length, unsubscribed: allUnsubscribed.length, netGrowth, converted, convertedEmails, revenue, channels: counts };
+    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, revenue, channels: counts };
   }
 
   const results = await Promise.allSettled([
