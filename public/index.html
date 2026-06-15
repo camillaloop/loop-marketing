@@ -1716,79 +1716,91 @@
   }
 
   // ── E-mail campaigns page ────────────────────────────────────────────────────
-  const EMAIL_CAMPAIGNS_DATA = {
-    il: {
-      week: currentWeekLabel(),
-      campaigns: [
-        { name: "Välkommen till Impact Loop",         date: "26 maj", opens: "62%", clicks: "14%" },
-        { name: "Veckans nyheter – hållbarhet",       date: "27 maj", opens: "48%", clicks: "9%"  },
-        { name: "Erbjudande: Prenumerera nu",         date: "29 maj", opens: "55%", clicks: "21%" },
-      ],
-    },
-    vc: {
-      week: currentWeekLabel(),
-      campaigns: [
-        { name: "Impact Loop VC – veckouppdatering",  date: "26 maj", opens: "71%", clicks: "18%" },
-        { name: "Investerarnytt: Ny portföljbolag",   date: "28 maj", opens: "65%", clicks: "22%" },
-      ],
-    },
-    el: {
-      week: currentWeekLabel(),
-      campaigns: [
-        { name: "Energy Loop – veckobrev",            date: "27 maj", opens: "44%", clicks: "8%"  },
-        { name: "Solenergi – trender denna vecka",    date: "29 maj", opens: "51%", clicks: "11%" },
-        { name: "Specialerbjudande: Energirapport",   date: "30 maj", opens: "38%", clicks: "6%"  },
-      ],
-    },
-    ind: {
-      week: currentWeekLabel(),
-      campaigns: [
-        { name: "Industrial Loop – veckonytt",        date: "27 maj", opens: "42%", clicks: "7%"  },
-        { name: "Hållbar industri: Nytt whitepaper",  date: "30 maj", opens: "46%", clicks: "13%" },
-      ],
-    },
-  };
+  // Live from Mailchimp via /api/campaigns. Campaigns are routed to a loop by
+  // their Mailchimp audience and filtered by title keyword (see api/campaigns.js).
+  let emailCampaignCaches = {};   // keyed by weekStart (YYYY-MM-DD)
+
+  function mondayMinusWeeks(mondayStr, n) {
+    const d = new Date(mondayStr + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 7 * n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function emcCampaignRows(campaigns) {
+    const rows = (campaigns || []).map(c => `
+      <div class="emc-row">
+        <div class="emc-row-main">
+          <span class="emc-name">${escHtml(c.name)}</span>
+          <span class="emc-date">${escHtml(c.date)}</span>
+        </div>
+        <div class="emc-row-stats">
+          <span class="emc-stat"><span class="emc-stat-label">Opens</span> ${escHtml(c.opens)}</span>
+          <span class="emc-stat"><span class="emc-stat-label">Clicks</span> ${escHtml(c.clicks)}</span>
+        </div>
+      </div>`).join("");
+    const empty = `<div style="font-size:13px;color:var(--muted);padding:16px 0">Inga kampanjer den här veckan.</div>`;
+    return rows || empty;
+  }
+
+  function emcSectionHtml(key, heading, monday) {
+    const cards = LOOPS.map(loop => `
+      <div class="ov-card">
+        <div class="ov-card-header">
+          <span class="ov-color-dot" style="background:${loop.color}"></span>
+          <span class="ov-card-title">${escHtml(loop.label)}</span>
+          <span class="emc-week-badge">${escHtml(mondayToWeekLabel(monday))}</span>
+        </div>
+        <div class="emc-card-body" id="emc-${key}-${loop.id}">
+          <div style="font-size:13px;color:var(--muted);padding:16px 0">Laddar…</div>
+        </div>
+      </div>`).join("");
+    return `
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 14px">${escHtml(heading)}</div>
+      <div class="ov-grid">${cards}</div>`;
+  }
 
   function renderEmailCampaignsPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
 
-    const cards = LOOPS.map(loop => {
-      const d = EMAIL_CAMPAIGNS_DATA[loop.id] || {};
-      const rows = (d.campaigns || []).map(c => `
-        <div class="emc-row">
-          <div class="emc-row-main">
-            <span class="emc-name">${escHtml(c.name)}</span>
-            <span class="emc-date">${escHtml(c.date)}</span>
-          </div>
-          <div class="emc-row-stats">
-            <span class="emc-stat"><span class="emc-stat-label">Opens</span> ${escHtml(c.opens)}</span>
-            <span class="emc-stat"><span class="emc-stat-label">Clicks</span> ${escHtml(c.clicks)}</span>
-          </div>
-        </div>`).join("");
-
-      const empty = `<div style="font-size:13px;color:var(--muted);padding:16px 0">Inga kampanjer den här veckan.</div>`;
-
-      return `
-        <div class="ov-card">
-          <div class="ov-card-header">
-            <span class="ov-color-dot" style="background:${loop.color}"></span>
-            <span class="ov-card-title">${escHtml(loop.label)}</span>
-            ${d.week ? `<span class="emc-week-badge">${escHtml(d.week)}</span>` : ""}
-          </div>
-          <div class="emc-card-body">
-            ${rows || empty}
-          </div>
-        </div>`;
-    }).join("");
+    const thisMonday = getCurrentMonday();
+    const lastMonday = mondayMinusWeeks(thisMonday, 1);
 
     el.innerHTML = `
       <div style="padding:24px 0 8px">
         <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">E-mail campaigns</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Kampanjer skickade denna vecka — alla fyra loopar</div>
-        <div class="ov-grid">${cards}</div>
-        <p style="font-size:11px;color:var(--muted);font-style:italic;margin-top:4px">Exempeldata – lägg in rätt</p>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:32px">Kampanjer från Mailchimp — alla fyra loopar</div>
+        ${emcSectionHtml("this", "Denna vecka", thisMonday)}
+        <div style="height:40px"></div>
+        ${emcSectionHtml("last", "Förra veckan", lastMonday)}
       </div>`;
+
+    loadEmailCampaigns(thisMonday, "this");
+    loadEmailCampaigns(lastMonday, "last");
+  }
+
+  async function loadEmailCampaigns(monday, key) {
+    const fill = data => {
+      for (const loop of LOOPS) {
+        const body = document.getElementById(`emc-${key}-${loop.id}`);
+        if (body) body.innerHTML = emcCampaignRows(data?.loops?.[loop.id]?.campaigns);
+      }
+    };
+
+    if (emailCampaignCaches[monday]) { fill(emailCampaignCaches[monday]); return; }
+
+    try {
+      const r = await fetch(`/api/campaigns?weekStart=${monday}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      emailCampaignCaches[monday] = await r.json();
+      fill(emailCampaignCaches[monday]);
+    } catch (e) {
+      for (const loop of LOOPS) {
+        const body = document.getElementById(`emc-${key}-${loop.id}`);
+        if (body) body.innerHTML = `<div style="font-size:13px;color:#a32d2d;padding:16px 0">Kunde inte hämta kampanjer.</div>`;
+      }
+      console.error("[email-campaigns]", e);
+    }
   }
 
   // ── LinkedIn campaigns page ──────────────────────────────────────────────────
