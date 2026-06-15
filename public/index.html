@@ -1448,7 +1448,7 @@
   };
 
   // Channel name → DOM ID suffix used for live cells
-  const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic" };
+  const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic", "Meetups/other": "other" };
 
   // Weekly channel costs (SEK) per loop — used to calculate CAC
   const CHANNEL_COSTS = {
@@ -1538,7 +1538,7 @@
     if (attractCaches[week]) { renderAttractData(attractCaches[week]); return; }
 
     LOOPS.forEach(loop => {
-      ["apollo", "linkedin", "organic"].forEach(ch => {
+      ["apollo", "linkedin", "organic", "other"].forEach(ch => {
         const cel = document.getElementById(`att-${loop.id}-${ch}`);
         if (cel) cel.textContent = "…";
       });
@@ -1555,7 +1555,7 @@
       renderAttractData(attractCaches[week]);
     } catch (e) {
       LOOPS.forEach(loop => {
-        ["apollo", "linkedin", "organic"].forEach(ch => {
+        ["apollo", "linkedin", "organic", "other"].forEach(ch => {
           const cel = document.getElementById(`att-${loop.id}-${ch}`);
           if (cel) cel.textContent = "err";
         });
@@ -1575,6 +1575,7 @@
       set(`att-${loopId}-apollo`,    d.channels.apollo);
       set(`att-${loopId}-linkedin`,  d.channels.linkedin);
       set(`att-${loopId}-organic`,   d.channels.organic);
+      set(`att-${loopId}-other`,     d.channels.other);
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
         netEl.textContent = d.netGrowth;

@@ -146,8 +146,8 @@ module.exports = async function handler(req, res) {
     });
 
     const counts          = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-    const converted       = { apollo: 0, linkedin: 0, organic: 0, total: 0 };
-    const convertedEmails = { apollo: [], linkedin: [], organic: [] };
+    const converted       = { apollo: 0, linkedin: 0, organic: 0, other: 0, total: 0 };
+    const convertedEmails = { apollo: [], linkedin: [], organic: [], other: [] };
 
     function parsePliroDate(s) {
       if (!s) return 0;
@@ -177,6 +177,8 @@ module.exports = async function handler(req, res) {
         channel = "apollo";
       } else if ([...tags].some(t => t.includes("linkedin"))) {
         channel = "linkedin";
+      } else if ([...tags].some(t => t.includes("meetup"))) {
+        channel = "other";
       } else {
         channel = "organic";
       }
@@ -195,11 +197,12 @@ module.exports = async function handler(req, res) {
       ...convertedEmails.apollo,
       ...convertedEmails.linkedin,
       ...convertedEmails.organic,
+      ...convertedEmails.other,
     ];
     const revenueMap = await fetchStripeRevenue(allConvertedEmails, process.env.STRIPE_SECRET_KEY);
 
-    const revenue = { apollo: 0, linkedin: 0, organic: 0 };
-    for (const ch of ["apollo", "linkedin", "organic"]) {
+    const revenue = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
+    for (const ch of ["apollo", "linkedin", "organic", "other"]) {
       for (const email of convertedEmails[ch]) {
         revenue[ch] += revenueMap[email] || 0;
       }
