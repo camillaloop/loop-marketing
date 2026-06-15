@@ -114,7 +114,7 @@ module.exports = async function handler(req, res) {
     const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(
         `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed` +
-        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
+        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,members.source,total_items`,
         d => d.members || []
       ),
       getAll(
@@ -172,8 +172,10 @@ module.exports = async function handler(req, res) {
 
       const isConv = joinedInWeek && pliroStartedInWeek && isConverted(mf);
 
+      const source = (m.source || "").toLowerCase();
+
       let channel;
-      if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t))) {
+      if (tags.has("apollo") || [...tags].some(t => /^src-apollo-\d{4}-\d{2}$/.test(t)) || source.includes("nordsym")) {
         channel = "apollo";
       } else if ([...tags].some(t => t.includes("linkedin"))) {
         channel = "linkedin";
