@@ -115,14 +115,15 @@ module.exports = async function handler(req, res) {
   }
 
   // Count customers whose first IL invoice is within the current week
-  let newSubsThisWeek = 0;
-  for (const d of Object.values(firstDate)) {
+  const newEmails = [];
+  for (const [email, d] of Object.entries(firstDate)) {
     const t = d.getTime();
-    if (t >= weekStartT && t < weekEndT) newSubsThisWeek++;
+    if (t >= weekStartT && t < weekEndT) newEmails.push(email);
   }
 
   res.status(200).json({
-    newSubsThisWeek,
+    newSubsThisWeek: newEmails.length,
+    emails: newEmails.sort(),
     weekStart: weekStart.toISOString().slice(0, 10),
   });
 };

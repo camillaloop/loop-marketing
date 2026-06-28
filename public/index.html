@@ -370,6 +370,21 @@
     #conv-popup li:last-child { border-bottom: none; }
     #conv-popup-close { position: absolute; top: 10px; right: 12px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted); background: none; border: none; padding: 0; }
 
+    /* ── IL new-subs hover tooltip ── */
+    #il-subs-tooltip {
+      display: none; position: fixed; z-index: 600;
+      background: #fff; border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+      padding: 12px 16px; min-width: 220px; max-width: 340px;
+      max-height: 40vh; overflow-y: auto;
+      pointer-events: none;
+    }
+    #il-subs-tooltip h4 { font-size: 12px; font-weight: 700; margin: 0 0 8px; color: var(--text); }
+    #il-subs-tooltip ul { list-style: none; padding: 0; margin: 0; }
+    #il-subs-tooltip li { font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    #il-subs-tooltip li:last-child { border-bottom: none; }
+    .il-subs-num { cursor: default; text-decoration: underline dotted; }
+
     /* ── Agents page ── */
     .agents-card {
       border: 1px solid var(--border);
@@ -791,16 +806,48 @@
 
   function renderIlNewSubs(d) {
     if (!d || d.newSubsThisWeek == null) return;
-    const n  = d.newSubsThisWeek;
-    const el = document.getElementById("ov-il-newSubs");
+    const n      = d.newSubsThisWeek;
+    const emails = d.emails || [];
+    const el     = document.getElementById("ov-il-newSubs");
     if (!el) return;
     const GOAL = 10;
     const isOk = n >= GOAL;
+    const emailsJson = escHtml(JSON.stringify(emails));
     el.innerHTML =
-      `<span class="ov-row-actual ${isOk ? "green" : "red"}">${n}</span>` +
+      `<span class="ov-row-actual ${isOk ? "green" : "red"} il-subs-num" data-emails="${emailsJson}">${n}</span>` +
       `<span class="ov-row-goal-txt">/ ${GOAL}</span>` +
       `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
   }
+
+  // ── IL subs hover tooltip ─────────────────────────────────────────────────
+  document.addEventListener("mouseover", e => {
+    const target = e.target.closest(".il-subs-num");
+    if (!target) return;
+    const emails = JSON.parse(target.dataset.emails || "[]");
+    const tooltip = document.getElementById("il-subs-tooltip");
+    if (!tooltip) return;
+    tooltip.querySelector("h4").textContent =
+      emails.length === 0 ? "Inga nya prenumeranter" : `${emails.length} ny${emails.length === 1 ? "" : "a"} prenumerant${emails.length === 1 ? "" : "er"}`;
+    tooltip.querySelector("ul").innerHTML =
+      emails.length === 0
+        ? ""
+        : emails.map(em => `<li>${escHtml(em)}</li>`).join("");
+    const rect = target.getBoundingClientRect();
+    tooltip.style.display = "block";
+    const tt = tooltip.getBoundingClientRect();
+    let left = rect.left;
+    let top  = rect.bottom + 6;
+    if (left + tt.width > window.innerWidth - 12) left = window.innerWidth - tt.width - 12;
+    if (top  + tt.height > window.innerHeight - 12) top = rect.top - tt.height - 6;
+    tooltip.style.left = left + "px";
+    tooltip.style.top  = top  + "px";
+  });
+
+  document.addEventListener("mouseout", e => {
+    if (!e.target.closest(".il-subs-num")) return;
+    const tooltip = document.getElementById("il-subs-tooltip");
+    if (tooltip) tooltip.style.display = "none";
+  });
 
   function renderIlMetrics(d) {
     if (!d) return;
@@ -2360,6 +2407,10 @@
   <button id="conv-popup-close">&times;</button>
   <h4 id="conv-popup-count"></h4>
   <ul id="conv-popup-list"></ul>
+</div>
+<div id="il-subs-tooltip">
+  <h4></h4>
+  <ul></ul>
 </div>
 </body>
 </html>
