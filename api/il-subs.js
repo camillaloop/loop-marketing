@@ -2,24 +2,21 @@
  * api/il-subs.js
  * GET /api/il-subs
  *
- * Reads the Impact Loop Sverige billing spreadsheet (Google Sheets CSV export)
- * and returns the number of new subscribers this ISO week.
+ * Reads the shared billing spreadsheet (Google Sheets CSV export) and returns
+ * new-subscriber counts + emails for the current ISO week, grouped by loop.
  *
- * A "new subscriber" = a customer whose FIRST invoice with Publication Name
- * containing "Impact Loop" has an Invoice date within the current Mon–Sun week.
+ * A "new subscriber" for a given loop = a customer whose FIRST invoice
+ * for that publication has an Invoice date within the current Mon–Sun week.
  *
  * Columns (0-indexed):
- *   0  Invoice
- *   1  Customer ID
- *   2  Customer
- *   3  Customer Email
- *   4  Invoice date
- *   5  Due date
- *   6  Subtotal
- *   7  VAT
- *   8  Rounding
- *   9  Total
- *  10  Publication Name
+ *   0  Invoice        3  Customer Email   6  Subtotal   9  Total
+ *   1  Customer ID    4  Invoice date     7  VAT       10  Publication Name
+ *   2  Customer       5  Due date         8  Rounding
+ *
+ * Publication Name → loop key mapping:
+ *   "Impact Loop"    → il
+ *   "Energy Loop"    → el
+ *   "Industrial Loop"→ ind
  */
 
 const SHEET_ID = "1JI1ah2DARe9iLUOrRXFTiAWECgByaxLaJVAbKcHmb3U";
@@ -29,19 +26,30 @@ const COL_CUSTOMER_EMAIL = 3;
 const COL_INVOICE_DATE   = 4;
 const COL_PUBLICATION    = 10;
 
+const PUB_TO_LOOP = {
+  "impact loop":    "il",
+  "energy loop":    "el",
+  "industrial loop":"ind",
+};
+
+function loopKey(pubName) {
+  const lower = pubName.toLowerCase().trim();
+  for (const [pattern, key] of Object.entries(PUB_TO_LOOP)) {
+    if (lower === pattern || lower.startsWith(pattern)) return key;
+  }
+  return null;
+}
+
 function parseDate(s) {
   if (!s) return null;
   s = s.trim().replace(/"/g, "");
-  // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + "T00:00:00Z");
-  // DD/MM/YYYY or D/M/YYYY
   const slash = s.split("/");
   if (slash.length === 3) {
     const [d, m, y] = slash;
     if (y.length === 4)
       return new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}T00:00:00Z`);
   }
-  // MM/DD/YYYY (fallback)
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -80,7 +88,7 @@ module.exports = async function handler(req, res) {
   const weekStartT = weekStart.getTime();
   const weekEndT   = weekEnd.getTime();
 
-  // Fetch CSV from Google Sheets (sheet must be "Anyone with link can view")
+  // Fetch CSV (sheet must be "Anyone with link can view")
   const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
   let csvText;
   try {
@@ -93,15 +101,16 @@ module.exports = async function handler(req, res) {
 
   const lines = csvText.split("\n");
 
-  // Build map: email → earliest IL invoice date across all time
-  const firstDate = {}; // email → Date
+  // firstDate[loop][email] = earliest invoice Date for that loop
+  const firstDate = { il: {}, el: {}, ind: {} };
 
-  for (let i = 1; i < lines.length; i++) { // skip header row
+  for (let i = 1; i < lines.length; i++) {
     const row = parseCsvLine(lines[i]);
     if (row.length < 11) continue;
 
-    const pub = (row[COL_PUBLICATION] || "").replace(/"/g, "").trim();
-    if (!pub.toLowerCase().includes("impact loop")) continue;
+    const pub  = (row[COL_PUBLICATION] || "").replace(/"/g, "").trim();
+    const loop = loopKey(pub);
+    if (!loop) continue;
 
     const email = (row[COL_CUSTOMER_EMAIL] || "").replace(/"/g, "").trim().toLowerCase();
     if (!email || !email.includes("@")) continue;
@@ -109,21 +118,24 @@ module.exports = async function handler(req, res) {
     const d = parseDate(row[COL_INVOICE_DATE]);
     if (!d) continue;
 
-    if (!firstDate[email] || d < firstDate[email]) {
-      firstDate[email] = d;
+    if (!firstDate[loop][email] || d < firstDate[loop][email]) {
+      firstDate[loop][email] = d;
     }
   }
 
-  // Count customers whose first IL invoice is within the current week
-  const newEmails = [];
-  for (const [email, d] of Object.entries(firstDate)) {
-    const t = d.getTime();
-    if (t >= weekStartT && t < weekEndT) newEmails.push(email);
+  // Build result per loop
+  const result = {};
+  for (const loop of ["il", "el", "ind"]) {
+    const newEmails = [];
+    for (const [email, d] of Object.entries(firstDate[loop])) {
+      const t = d.getTime();
+      if (t >= weekStartT && t < weekEndT) newEmails.push(email);
+    }
+    result[loop] = { newSubsThisWeek: newEmails.length, emails: newEmails.sort() };
   }
 
   res.status(200).json({
-    newSubsThisWeek: newEmails.length,
-    emails: newEmails.sort(),
+    ...result,
     weekStart: weekStart.toISOString().slice(0, 10),
   });
 };

@@ -674,6 +674,7 @@
     loadVcData();
     loadIlData();
     loadElData();
+    loadSubsData();
   }
 
   let vcDataCache = null;
@@ -771,8 +772,6 @@
   // ── Impact Loop Sverige (Google Sheets MRR) ──────────────────────────────
   let ilDataCache = null;
 
-  let ilSubsCache = null;
-
   async function loadIlData(force = false) {
     if (ilDataCache && !force) { renderIlMetrics(ilDataCache); return; }
     try {
@@ -787,30 +786,39 @@
       });
       console.error("[il mrr]", e);
     }
-    // New subscribers from billing sheet
-    if (ilSubsCache && !force) {
-      renderIlNewSubs(ilSubsCache);
-      return;
-    }
+  }
+
+  // ── New-subs from billing sheet (il / el / ind) ───────────────────────────
+  let subsCache = null;
+  const SUBS_GOALS = { il: 10, el: 5, ind: 3 };
+
+  async function loadSubsData(force = false) {
+    if (subsCache && !force) { renderAllLoopSubs(subsCache); return; }
     try {
-      const r2 = await fetch("/api/il-subs");
-      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
-      ilSubsCache = await r2.json();
-      renderIlNewSubs(ilSubsCache);
+      const r = await fetch("/api/il-subs");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      subsCache = await r.json();
+      renderAllLoopSubs(subsCache);
     } catch (e) {
-      const el = document.getElementById("ov-il-newSubs");
-      if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
-      console.error("[il subs]", e);
+      ["il", "el", "ind"].forEach(loop => {
+        const el = document.getElementById(`ov-${loop}-newSubs`);
+        if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
+      });
+      console.error("[loop subs]", e);
     }
   }
 
-  function renderIlNewSubs(d) {
-    if (!d || d.newSubsThisWeek == null) return;
-    const n      = d.newSubsThisWeek;
-    const emails = d.emails || [];
-    const el     = document.getElementById("ov-il-newSubs");
+  function renderAllLoopSubs(d) {
+    ["il", "el", "ind"].forEach(loop => renderLoopNewSubs(loop, d[loop]));
+  }
+
+  function renderLoopNewSubs(loop, data) {
+    if (!data || data.newSubsThisWeek == null) return;
+    const n      = data.newSubsThisWeek;
+    const emails = data.emails || [];
+    const el     = document.getElementById(`ov-${loop}-newSubs`);
     if (!el) return;
-    const GOAL = 10;
+    const GOAL = SUBS_GOALS[loop] || 5;
     const isOk = n >= GOAL;
     const emailsJson = escHtml(JSON.stringify(emails));
     el.innerHTML =
@@ -819,26 +827,26 @@
       `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
   }
 
-  // ── IL subs hover tooltip ─────────────────────────────────────────────────
+  // ── New-subs hover tooltip (shared for il / el / ind) ────────────────────
   document.addEventListener("mouseover", e => {
     const target = e.target.closest(".il-subs-num");
     if (!target) return;
-    const emails = JSON.parse(target.dataset.emails || "[]");
+    const emails  = JSON.parse(target.dataset.emails || "[]");
     const tooltip = document.getElementById("il-subs-tooltip");
     if (!tooltip) return;
     tooltip.querySelector("h4").textContent =
-      emails.length === 0 ? "Inga nya prenumeranter" : `${emails.length} ny${emails.length === 1 ? "" : "a"} prenumerant${emails.length === 1 ? "" : "er"}`;
-    tooltip.querySelector("ul").innerHTML =
       emails.length === 0
-        ? ""
-        : emails.map(em => `<li>${escHtml(em)}</li>`).join("");
+        ? "Inga nya prenumeranter"
+        : `${emails.length} ny${emails.length === 1 ? "" : "a"} prenumerant${emails.length === 1 ? "" : "er"}`;
+    tooltip.querySelector("ul").innerHTML =
+      emails.length === 0 ? "" : emails.map(em => `<li>${escHtml(em)}</li>`).join("");
     const rect = target.getBoundingClientRect();
     tooltip.style.display = "block";
     const tt = tooltip.getBoundingClientRect();
     let left = rect.left;
     let top  = rect.bottom + 6;
-    if (left + tt.width > window.innerWidth - 12) left = window.innerWidth - tt.width - 12;
-    if (top  + tt.height > window.innerHeight - 12) top = rect.top - tt.height - 6;
+    if (left + tt.width  > window.innerWidth  - 12) left = window.innerWidth  - tt.width  - 12;
+    if (top  + tt.height > window.innerHeight - 12) top  = rect.top - tt.height - 6;
     tooltip.style.left = left + "px";
     tooltip.style.top  = top  + "px";
   });
