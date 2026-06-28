@@ -756,6 +756,8 @@
   // ── Impact Loop Sverige (Google Sheets MRR) ──────────────────────────────
   let ilDataCache = null;
 
+  let ilSubsCache = null;
+
   async function loadIlData(force = false) {
     if (ilDataCache && !force) { renderIlMetrics(ilDataCache); return; }
     try {
@@ -770,6 +772,34 @@
       });
       console.error("[il mrr]", e);
     }
+    // New subscribers from billing sheet
+    if (ilSubsCache && !force) {
+      renderIlNewSubs(ilSubsCache);
+      return;
+    }
+    try {
+      const r2 = await fetch("/api/il-subs");
+      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+      ilSubsCache = await r2.json();
+      renderIlNewSubs(ilSubsCache);
+    } catch (e) {
+      const el = document.getElementById("ov-il-newSubs");
+      if (el) el.innerHTML = `<span class="ov-row-actual red">Error</span>`;
+      console.error("[il subs]", e);
+    }
+  }
+
+  function renderIlNewSubs(d) {
+    if (!d || d.newSubsThisWeek == null) return;
+    const n  = d.newSubsThisWeek;
+    const el = document.getElementById("ov-il-newSubs");
+    if (!el) return;
+    const GOAL = 10;
+    const isOk = n >= GOAL;
+    el.innerHTML =
+      `<span class="ov-row-actual ${isOk ? "green" : "red"}">${n}</span>` +
+      `<span class="ov-row-goal-txt">/ ${GOAL}</span>` +
+      `<span class="ov-dot ${isOk ? "ok" : "bad"}"></span>`;
   }
 
   function renderIlMetrics(d) {
