@@ -377,11 +377,10 @@
       border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.13);
       padding: 12px 16px; min-width: 220px; max-width: 340px;
       max-height: 40vh; overflow-y: auto;
-      pointer-events: none;
     }
     #il-subs-tooltip h4 { font-size: 12px; font-weight: 700; margin: 0 0 8px; color: var(--text); }
     #il-subs-tooltip ul { list-style: none; padding: 0; margin: 0; }
-    #il-subs-tooltip li { font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    #il-subs-tooltip li { font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: text; user-select: text; }
     #il-subs-tooltip li:last-child { border-bottom: none; }
     .il-subs-num { cursor: default; text-decoration: underline dotted; }
 
@@ -859,33 +858,46 @@
   }
 
   // ── New-subs hover tooltip (shared for il / el / ind) ────────────────────
-  document.addEventListener("mouseover", e => {
-    const target = e.target.closest(".il-subs-num");
-    if (!target) return;
+  let _subsTooltipHideTimer = null;
+
+  function _subsTooltipShow(target) {
+    clearTimeout(_subsTooltipHideTimer);
     const emails  = JSON.parse(target.dataset.emails || "[]");
     const tooltip = document.getElementById("il-subs-tooltip");
     if (!tooltip) return;
     tooltip.querySelector("h4").textContent =
       emails.length === 0
-        ? "Inga nya prenumeranter"
-        : `${emails.length} ny${emails.length === 1 ? "" : "a"} prenumerant${emails.length === 1 ? "" : "er"}`;
+        ? "Inga prenumeranter"
+        : `${emails.length} prenumerant${emails.length === 1 ? "" : "er"}`;
     tooltip.querySelector("ul").innerHTML =
       emails.length === 0 ? "" : emails.map(em => `<li>${escHtml(em)}</li>`).join("");
-    const rect = target.getBoundingClientRect();
     tooltip.style.display = "block";
-    const tt = tooltip.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    const tt   = tooltip.getBoundingClientRect();
     let left = rect.left;
     let top  = rect.bottom + 6;
     if (left + tt.width  > window.innerWidth  - 12) left = window.innerWidth  - tt.width  - 12;
     if (top  + tt.height > window.innerHeight - 12) top  = rect.top - tt.height - 6;
     tooltip.style.left = left + "px";
     tooltip.style.top  = top  + "px";
+  }
+
+  function _subsTooltipScheduleHide() {
+    _subsTooltipHideTimer = setTimeout(() => {
+      const tooltip = document.getElementById("il-subs-tooltip");
+      if (tooltip) tooltip.style.display = "none";
+    }, 120);
+  }
+
+  document.addEventListener("mouseover", e => {
+    const trigger = e.target.closest(".il-subs-num");
+    if (trigger) { _subsTooltipShow(trigger); return; }
+    if (e.target.closest("#il-subs-tooltip")) clearTimeout(_subsTooltipHideTimer);
   });
 
   document.addEventListener("mouseout", e => {
-    if (!e.target.closest(".il-subs-num")) return;
-    const tooltip = document.getElementById("il-subs-tooltip");
-    if (tooltip) tooltip.style.display = "none";
+    if (e.target.closest(".il-subs-num") || e.target.closest("#il-subs-tooltip"))
+      _subsTooltipScheduleHide();
   });
 
   function renderIlMetrics(d) {
