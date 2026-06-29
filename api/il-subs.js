@@ -77,13 +77,19 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=300");
 
-  // Current ISO week: Monday 00:00 UTC → Sunday 23:59 UTC
-  const now        = new Date();
-  const dayOfWeek  = now.getUTCDay();
-  const daysBack   = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart  = new Date(now);
-  weekStart.setUTCDate(now.getUTCDate() - daysBack);
-  weekStart.setUTCHours(0, 0, 0, 0);
+  // Determine week window — use ?weekStart=YYYY-MM-DD or fall back to current ISO week
+  const qWeekStart = req.query?.weekStart;
+  let weekStart;
+  if (qWeekStart && /^\d{4}-\d{2}-\d{2}$/.test(qWeekStart)) {
+    weekStart = new Date(qWeekStart + "T00:00:00Z");
+  } else {
+    const now       = new Date();
+    const dayOfWeek = now.getUTCDay();
+    const daysBack  = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    weekStart       = new Date(now);
+    weekStart.setUTCDate(now.getUTCDate() - daysBack);
+    weekStart.setUTCHours(0, 0, 0, 0);
+  }
   const weekEnd    = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
   const weekStartT = weekStart.getTime();
   const weekEndT   = weekEnd.getTime();

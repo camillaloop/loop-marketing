@@ -646,6 +646,24 @@
     { key: "payback",       label: "Payback time" },
   ];
 
+  let overviewWeek = getCurrentMonday();
+  let subsCaches   = {};
+
+  function getOverviewWeekOptions() {
+    const options = [];
+    let d = new Date(getCurrentMonday() + "T00:00:00Z");
+    for (let i = 0; i < 5; i++) {
+      options.push(d.toISOString().slice(0, 10));
+      d.setUTCDate(d.getUTCDate() - 7);
+    }
+    return options;
+  }
+
+  function switchOverviewWeek(monday) {
+    overviewWeek = monday;
+    loadSubsData();
+  }
+
   function renderOverviewPage() {
     const el = document.getElementById("main-content");
     const cards = LOOPS.map(loop => `
@@ -664,9 +682,18 @@
         </div>
       </div>`).join("");
 
+    const weekOpts = getOverviewWeekOptions();
+    const weekSelect = `<select id="ov-week-select" onchange="switchOverviewWeek(this.value)"
+      style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--sidebar-bg);color:var(--text);cursor:pointer">
+      ${weekOpts.map(w => `<option value="${w}" ${w === overviewWeek ? "selected" : ""}>${mondayToWeekLabel(w)}${w === getCurrentMonday() ? " (denna vecka)" : ""}</option>`).join("")}
+    </select>`;
+
     el.innerHTML = `
       <div style="padding:24px 0 8px">
-        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Overview</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px">
+          <div style="font-size:20px;font-weight:700;color:var(--text)">Overview</div>
+          ${weekSelect}
+        </div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Key metrics across all four loops</div>
         <div class="ov-grid">${cards}</div>
       </div>`;
@@ -789,16 +816,20 @@
   }
 
   // ── New-subs from billing sheet (il / el / ind) ───────────────────────────
-  let subsCache = null;
   const SUBS_GOALS = { il: 10, el: 5, ind: 3 };
 
   async function loadSubsData(force = false) {
-    if (subsCache && !force) { renderAllLoopSubs(subsCache); return; }
+    const week = overviewWeek;
+    if (subsCaches[week] && !force) { renderAllLoopSubs(subsCaches[week]); return; }
+    ["il", "el", "ind"].forEach(loop => {
+      const el = document.getElementById(`ov-${loop}-newSubs`);
+      if (el) el.innerHTML = `<span class="ov-row-actual muted">…</span>`;
+    });
     try {
-      const r = await fetch("/api/il-subs");
+      const r = await fetch(`/api/il-subs?weekStart=${week}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      subsCache = await r.json();
-      renderAllLoopSubs(subsCache);
+      subsCaches[week] = await r.json();
+      if (overviewWeek === week) renderAllLoopSubs(subsCaches[week]);
     } catch (e) {
       ["il", "el", "ind"].forEach(loop => {
         const el = document.getElementById(`ov-${loop}-newSubs`);
