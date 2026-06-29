@@ -146,6 +146,7 @@ module.exports = async function handler(req, res) {
     });
 
     const counts          = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
+    const channelEmails   = { apollo: [], linkedin: [], organic: [], other: [] };
     const converted       = { apollo: 0, linkedin: 0, organic: 0, other: 0, total: 0 };
     const convertedEmails = { apollo: [], linkedin: [], organic: [], other: [] };
 
@@ -187,6 +188,7 @@ module.exports = async function handler(req, res) {
       }
 
       counts[channel]++;
+      channelEmails[channel].push(m.email_address);
       if (isConv) {
         converted[channel]++;
         converted.total++;
@@ -211,7 +213,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, revenue, channels: counts };
+    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, channelEmails, revenue, channels: counts };
   }
 
   const results = await Promise.allSettled([

@@ -1687,11 +1687,24 @@
       if (cel) cel.textContent = String(val);
     };
     for (const [loopId, d] of Object.entries(data.loops)) {
-      set(`att-${loopId}-total`,     d.total);
-      set(`att-${loopId}-apollo`,    d.channels.apollo);
-      set(`att-${loopId}-linkedin`,  d.channels.linkedin);
-      set(`att-${loopId}-organic`,   d.channels.organic);
-      set(`att-${loopId}-other`,     d.channels.other);
+      set(`att-${loopId}-total`,    d.total);
+      set(`att-${loopId}-apollo`,   d.channels.apollo);
+      set(`att-${loopId}-linkedin`, d.channels.linkedin);
+      set(`att-${loopId}-other`,    d.channels.other);
+
+      // Organic: show count with hover tooltip if emails available
+      const organicEl     = document.getElementById(`att-${loopId}-organic`);
+      const organicEmails = (d.channelEmails?.organic || []).slice().sort();
+      if (organicEl) {
+        if (organicEmails.length > 0) {
+          const emailsJson = escHtml(JSON.stringify(organicEmails));
+          organicEl.innerHTML =
+            `<span class="il-subs-num" data-emails="${emailsJson}">${d.channels.organic}</span>`;
+        } else {
+          organicEl.textContent = String(d.channels.organic);
+        }
+      }
+
       const netEl = document.getElementById(`att-${loopId}-net`);
       if (netEl && d.netGrowth != null) {
         netEl.textContent = d.netGrowth;
