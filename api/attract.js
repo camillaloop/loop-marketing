@@ -105,28 +105,20 @@ module.exports = async function handler(req, res) {
       before_timestamp_opt: weekEndIso,
     });
 
-    // Unsubscribed within the week — bound both ends so old weeks stay small.
+    // Unsubscribed within the week — bound both ends so old weeks stay small. Also pulls
+    // tags + timestamp_opt so we can count lead-fleet leads that opted in this week but
+    // already churned, giving a GROSS delivery number without a third concurrent scan
+    // (the extra scan tripled Mailchimp load and rate-limited the big Impact list to 0).
     const unsubParams = new URLSearchParams({
       status: "unsubscribed",
-      fields: "members.email_address,members.last_changed,members.unsubscribe_reason,total_items",
+      fields: "members.email_address,members.last_changed,members.unsubscribe_reason,members.timestamp_opt,members.tags,total_items",
       since_last_changed:  weekStartIso,
       before_last_changed: weekEndIso,
     });
 
-    // ANY status (subscribed + unsubscribed + cleaned) opted-in this week, for the GROSS
-    // lead-fleet delivery count that drives the progress bar. Bounded by the opt-in window
-    // so it stays small like the other two. This is what NordSym is measured on (matches
-    // the daily Slack write count); the subscribed channel table is a touch lower by churn.
-    const anyParams = new URLSearchParams({
-      fields: "members.timestamp_opt,members.tags,total_items",
-      since_timestamp_opt:  weekStartIso,
-      before_timestamp_opt: weekEndIso,
-    });
-
-    const [allChanged, allUnsubscribed, allAnyStatus] = await Promise.all([
+    const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(`${base}/lists/${listId}/members?${subParams.toString()}`,   d => d.members || []),
       getAll(`${base}/lists/${listId}/members?${unsubParams.toString()}`, d => d.members || []),
-      getAll(`${base}/lists/${listId}/members?${anyParams.toString()}`,   d => d.members || []),
     ]);
 
     // New in the selected week: timestamp_opt within [weekStart, weekEnd)
@@ -236,17 +228,21 @@ module.exports = async function handler(req, res) {
 
     const netGrowth = recentMembers.length - weekUnsubscribed.length;
 
-    // GROSS lead-fleet delivered this week: every member opted-in this week carrying a lead
-    // fleet / apollo tag, any status. Matches the daily Slack write count (what NordSym is
-    // measured on), distinct from the subscribed channel counts above.
-    let leadFleetDelivered = 0;
-    for (const m of allAnyStatus) {
+    // GROSS lead-fleet delivered this week = subscribed lead-fleet (the three sub-channels
+    // above) + lead-fleet leads that opted in this week but already unsubscribed. This is
+    // the delivery number NordSym is measured on (matches the daily Slack write count),
+    // built from the two scans we already have (no third scan that would rate-limit).
+    const isLeadFleetTag = tagList =>
+      (tagList || []).map(x => x.name.toLowerCase()).some(x => /lead[\s_-]?fleet/.test(x) || x.includes("apollo"));
+    const subscribedLeadFleet = counts.apollo + counts.linkedinLead + counts.ovrig;
+    let churnedLeadFleet = 0;
+    for (const m of weekUnsubscribed) {
       if (!m.timestamp_opt) continue;
       const t = new Date(m.timestamp_opt).getTime();
       if (t < weekStartTime || t >= weekEndTime) continue;
-      const tags = (m.tags || []).map(x => x.name.toLowerCase());
-      if (tags.some(x => /lead[\s_-]?fleet/.test(x) || x.includes("apollo"))) leadFleetDelivered++;
+      if (isLeadFleetTag(m.tags)) churnedLeadFleet++;
     }
+    const leadFleetDelivered = subscribedLeadFleet + churnedLeadFleet;
     const deliveryTarget = WEEKLY_TARGET[listKey] || 0;
 
     return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, leadFleetDelivered, deliveryTarget, converted, convertedEmails, channelEmails, channels: counts };
