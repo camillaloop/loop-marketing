@@ -114,7 +114,7 @@ module.exports = async function handler(req, res) {
     const [allChanged, allUnsubscribed] = await Promise.all([
       getAll(
         `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed` +
-        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,total_items`,
+        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,members.source,total_items`,
         d => d.members || []
       ),
       getAll(
@@ -145,10 +145,18 @@ module.exports = async function handler(req, res) {
       return t >= weekStartTime && t < weekEndTime;
     });
 
-    const counts          = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-    const channelEmails   = { apollo: [], linkedin: [], organic: [], other: [] };
-    const converted       = { apollo: 0, linkedin: 0, organic: 0, other: 0, total: 0 };
-    const convertedEmails = { apollo: [], linkedin: [], organic: [], other: [] };
+    const counts          = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 };
+    const channelEmails   = { apollo: [], linkedin: [], organic: [], meetups: [], other: [] };
+    const converted       = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0, total: 0 };
+    const convertedEmails = { apollo: [], linkedin: [], organic: [], meetups: [], other: [] };
+
+    // A contact came in through a genuine signup form / signup flow when:
+    //  • its source is an on-site form/landing page, OR
+    //  • it carries a "form-pickup" tag (Zapier-piped form submissions), OR
+    //  • it has Pliro membership fields — free-plan newsletter signups that
+    //    Pliro syncs in via API after a double-opt-in website flow.
+    const ORGANIC_SOURCES = ["embed form", "website", "landing page", "hosted signup form", "linkinbio"];
+    const PLIRO_KEYS = ["PLIROCUSID", "PLIROMEMID", "PLIROPLAN", "PLIROSSTAT", "PLIROSSTRT", "PLIROSPAID", "PLIROMROLE"];
 
     function parsePliroDate(s) {
       if (!s) return 0;
@@ -173,18 +181,26 @@ module.exports = async function handler(req, res) {
 
       const isConv = joinedInWeek && pliroStartedInWeek && isConverted(mf);
 
-      // Apollo: any tag containing "apollo" — covers the bare "apollo" tag,
-      // src-apollo-YYYY-MM file imports, and Lead Fleet / Nordsym contacts
-      // tagged "Lead Fleet Source: Apollo ICP".
+      const source = (m.source || "").toLowerCase();
+      const isOrganic =
+        ORGANIC_SOURCES.some(s => source.includes(s)) ||
+        [...tags].some(t => /form[\s_-]?pickup/.test(t)) ||
+        PLIRO_KEYS.some(k => mf[k] != null && String(mf[k]).trim() !== "");
+
+      // Apollo: any tag containing "apollo" or "lead fleet" — covers the bare
+      // "apollo" tag, src-apollo-YYYY-MM imports, and all Lead Fleet / Nordsym
+      // variants (Apollo ICP, Website Scrape, RSS Article).
       let channel;
-      if ([...tags].some(t => t.includes("apollo"))) {
+      if ([...tags].some(t => t.includes("apollo") || t.includes("lead fleet"))) {
         channel = "apollo";
       } else if ([...tags].some(t => t.includes("linkedin"))) {
         channel = "linkedin";
       } else if ([...tags].some(t => t.includes("meetup"))) {
-        channel = "other";
-      } else {
+        channel = "meetups";
+      } else if (isOrganic) {
         channel = "organic";
+      } else {
+        channel = "other";
       }
 
       counts[channel]++;
@@ -202,12 +218,13 @@ module.exports = async function handler(req, res) {
       ...convertedEmails.apollo,
       ...convertedEmails.linkedin,
       ...convertedEmails.organic,
+      ...convertedEmails.meetups,
       ...convertedEmails.other,
     ];
     const revenueMap = await fetchStripeRevenue(allConvertedEmails, process.env.STRIPE_SECRET_KEY);
 
-    const revenue = { apollo: 0, linkedin: 0, organic: 0, other: 0 };
-    for (const ch of ["apollo", "linkedin", "organic", "other"]) {
+    const revenue = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 };
+    for (const ch of ["apollo", "linkedin", "organic", "meetups", "other"]) {
       for (const email of convertedEmails[ch]) {
         revenue[ch] += revenueMap[email] || 0;
       }
@@ -223,7 +240,7 @@ module.exports = async function handler(req, res) {
     fetchListData(LISTS.ind, "ind"),
   ]);
 
-  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, other: 0 }, error: err });
+  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 }, error: err });
   const [il, vc, el, ind] = results.map(r =>
     r.status === "fulfilled" ? r.value : empty(r.reason?.message)
   );

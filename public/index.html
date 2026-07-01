@@ -1546,37 +1546,37 @@
              { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
            ]},
     vc:  { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
            channels: [
              { name: "Apollo",        number: "–", cost: "–",         converted: "–", cac: "–" },
              { name: "LinkedIn",      number: "–", cost: "2 500 kr",  converted: "–", cac: "–" },
              { name: "Organic",       number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "Meetups/other", number: "–", cost: "–",         converted: "–", cac: "–" },
+             { name: "Meetups",       number: "–", cost: "–",         converted: "–", cac: "–" },
+             { name: "Other",         number: "–", cost: "–",         converted: "–", cac: "–" },
            ]},
     el:  { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
            channels: [
              { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
            ]},
     ind: { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
            channels: [
              { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "LinkedIn",      number: "–", cost: "–", converted: "–", cac: "–" },
              { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups/other", number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
+             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
            ]},
   };
 
   // Channel name → DOM ID suffix used for live cells
-  const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic", "Meetups/other": "other" };
+  const ATTRACT_CH_IDS = { Apollo: "apollo", LinkedIn: "linkedin", Organic: "organic", Meetups: "meetups", Other: "other" };
 
   // Weekly channel costs (SEK) per loop — used to calculate CAC
   const CHANNEL_COSTS = {
@@ -1666,7 +1666,7 @@
     if (attractCaches[week]) { renderAttractData(attractCaches[week]); return; }
 
     LOOPS.forEach(loop => {
-      ["apollo", "linkedin", "organic", "other"].forEach(ch => {
+      ["apollo", "linkedin", "organic", "meetups", "other"].forEach(ch => {
         const cel = document.getElementById(`att-${loop.id}-${ch}`);
         if (cel) cel.textContent = "…";
       });
@@ -1683,7 +1683,7 @@
       renderAttractData(attractCaches[week]);
     } catch (e) {
       LOOPS.forEach(loop => {
-        ["apollo", "linkedin", "organic", "other"].forEach(ch => {
+        ["apollo", "linkedin", "organic", "meetups", "other"].forEach(ch => {
           const cel = document.getElementById(`att-${loop.id}-${ch}`);
           if (cel) cel.textContent = "err";
         });
@@ -1702,6 +1702,7 @@
       set(`att-${loopId}-total`,    d.total);
       set(`att-${loopId}-apollo`,   d.channels.apollo);
       set(`att-${loopId}-linkedin`, d.channels.linkedin);
+      set(`att-${loopId}-meetups`,  d.channels.meetups);
       set(`att-${loopId}-other`,    d.channels.other);
 
       // Organic: show count with hover tooltip if emails available
