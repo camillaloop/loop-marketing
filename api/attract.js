@@ -145,10 +145,10 @@ module.exports = async function handler(req, res) {
       return t >= weekStartTime && t < weekEndTime;
     });
 
-    const counts          = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 };
-    const channelEmails   = { apollo: [], linkedin: [], organic: [], meetups: [], other: [] };
-    const converted       = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0, total: 0 };
-    const convertedEmails = { apollo: [], linkedin: [], organic: [], meetups: [], other: [] };
+    const counts          = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 };
+    const channelEmails   = { apollo: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
+    const converted       = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0, total: 0 };
+    const convertedEmails = { apollo: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
 
     // A contact came in through a genuine signup form / signup flow when:
     //  • its source is an on-site form/landing page, OR
@@ -187,12 +187,18 @@ module.exports = async function handler(req, res) {
         [...tags].some(t => /form[\s_-]?pickup/.test(t)) ||
         PLIRO_KEYS.some(k => mf[k] != null && String(mf[k]).trim() !== "");
 
-      // Apollo: any tag containing "apollo" or "lead fleet" — covers the bare
-      // "apollo" tag, src-apollo-YYYY-MM imports, and all Lead Fleet / Nordsym
-      // variants (Apollo ICP, Website Scrape, RSS Article).
       let channel;
-      if ([...tags].some(t => t.includes("apollo") || t.includes("lead fleet"))) {
+      // CRITICAL: any "lead fleet" tag ALWAYS goes to Apollo, before every
+      // other channel. Lead Fleet has LinkedIn-source variants ("Lead Fleet
+      // Source: LinkedIn / Followers / Engagement") that must never count as
+      // LinkedIn ads, popup, etc. Matches lead fleet / leadfleet / lead-fleet.
+      if ([...tags].some(t => /lead[\s_-]?fleet/.test(t))) {
         channel = "apollo";
+      } else if ([...tags].some(t => t.includes("apollo"))) {
+        // bare "apollo" tag or src-apollo-YYYY-MM imports
+        channel = "apollo";
+      } else if ([...tags].some(t => t.includes("triggerbee popup"))) {
+        channel = "popup";
       } else if ([...tags].some(t => t.includes("linkedin"))) {
         channel = "linkedin";
       } else if ([...tags].some(t => t.includes("meetup"))) {
@@ -217,14 +223,15 @@ module.exports = async function handler(req, res) {
     const allConvertedEmails = [
       ...convertedEmails.apollo,
       ...convertedEmails.linkedin,
+      ...convertedEmails.popup,
       ...convertedEmails.organic,
       ...convertedEmails.meetups,
       ...convertedEmails.other,
     ];
     const revenueMap = await fetchStripeRevenue(allConvertedEmails, process.env.STRIPE_SECRET_KEY);
 
-    const revenue = { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 };
-    for (const ch of ["apollo", "linkedin", "organic", "meetups", "other"]) {
+    const revenue = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 };
+    for (const ch of ["apollo", "linkedin", "popup", "organic", "meetups", "other"]) {
       for (const email of convertedEmails[ch]) {
         revenue[ch] += revenueMap[email] || 0;
       }
@@ -240,7 +247,7 @@ module.exports = async function handler(req, res) {
     fetchListData(LISTS.ind, "ind"),
   ]);
 
-  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, organic: 0, meetups: 0, other: 0 }, error: err });
+  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 }, error: err });
   const [il, vc, el, ind] = results.map(r =>
     r.status === "fulfilled" ? r.value : empty(r.reason?.message)
   );
