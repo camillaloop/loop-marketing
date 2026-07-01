@@ -21,6 +21,10 @@ const CONVERTED_RULES = {
   ind: (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
 };
 
+// Weekly lead-fleet delivery target agreed with the client (gross intake). Drives the
+// per-loop "delivered vs target" progress bar. Separate from net growth.
+const WEEKLY_TARGET = { il: 200, vc: 500, el: 500, ind: 500 };
+
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -63,7 +67,19 @@ module.exports = async function handler(req, res) {
     let offset  = 0;
     while (true) {
       const sep  = url.includes("?") ? "&" : "?";
-      const r    = await fetch(`${url}${sep}count=500&offset=${offset}`, { headers: { Authorization: auth } });
+      // Retry transient Mailchimp errors (429 / 5xx) with backoff. Without this a single
+      // 429 aborts the scan and silently returns a partial/empty list — a false 0.
+      let r, attempt = 0;
+      while (true) {
+        r = await fetch(`${url}${sep}count=500&offset=${offset}`, { headers: { Authorization: auth } });
+        if (r.ok) break;
+        if ((r.status === 429 || r.status >= 500) && attempt < 4) {
+          await new Promise(s => setTimeout(s, 400 * (attempt + 1)));
+          attempt += 1;
+          continue;
+        }
+        break;
+      }
       if (!r.ok) break;
       const data = await r.json();
       const page = getItems(data);
@@ -97,9 +113,20 @@ module.exports = async function handler(req, res) {
       before_last_changed: weekEndIso,
     });
 
-    const [allChanged, allUnsubscribed] = await Promise.all([
+    // ANY status (subscribed + unsubscribed + cleaned) opted-in this week, for the GROSS
+    // lead-fleet delivery count that drives the progress bar. Bounded by the opt-in window
+    // so it stays small like the other two. This is what NordSym is measured on (matches
+    // the daily Slack write count); the subscribed channel table is a touch lower by churn.
+    const anyParams = new URLSearchParams({
+      fields: "members.timestamp_opt,members.tags,total_items",
+      since_timestamp_opt:  weekStartIso,
+      before_timestamp_opt: weekEndIso,
+    });
+
+    const [allChanged, allUnsubscribed, allAnyStatus] = await Promise.all([
       getAll(`${base}/lists/${listId}/members?${subParams.toString()}`,   d => d.members || []),
       getAll(`${base}/lists/${listId}/members?${unsubParams.toString()}`, d => d.members || []),
+      getAll(`${base}/lists/${listId}/members?${anyParams.toString()}`,   d => d.members || []),
     ]);
 
     // New in the selected week: timestamp_opt within [weekStart, weekEnd)
@@ -123,10 +150,13 @@ module.exports = async function handler(req, res) {
       return t >= weekStartTime && t < weekEndTime;
     });
 
-    const counts          = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 };
-    const channelEmails   = { apollo: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
-    const converted       = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0, total: 0 };
-    const convertedEmails = { apollo: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
+    // Lead-fleet sub-channels (apollo/linkedinLead/ovrig) are OUR sources, split by where
+    // the person was discovered. linkedin/popup/organic/meetups/other are the client's own
+    // channels — lead-fleet leads must never land in those (Diana 2026-07-01).
+    const counts          = { apollo: 0, linkedinLead: 0, ovrig: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 };
+    const channelEmails   = { apollo: [], linkedinLead: [], ovrig: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
+    const converted       = { apollo: 0, linkedinLead: 0, ovrig: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0, total: 0 };
+    const convertedEmails = { apollo: [], linkedinLead: [], ovrig: [], linkedin: [], popup: [], organic: [], meetups: [], other: [] };
 
     // A contact came in through a genuine signup form / signup flow when:
     //  • its source is an on-site form/landing page, OR
@@ -166,11 +196,19 @@ module.exports = async function handler(req, res) {
         PLIRO_KEYS.some(k => mf[k] != null && String(mf[k]).trim() !== "");
 
       let channel;
-      // CRITICAL: any "lead fleet" tag ALWAYS goes to Apollo, before every
-      // other channel. Lead Fleet has LinkedIn-source variants ("Lead Fleet
-      // Source: LinkedIn / Followers / Engagement") that must never count as
-      // LinkedIn ads, popup, etc. Matches lead fleet / leadfleet / lead-fleet.
-      if ([...tags].some(t => /lead[\s_-]?fleet/.test(t))) {
+      // Our lead fleet (all carry a "Lead Fleet" tag) is split by DISCOVERY source into
+      // three sub-channels, checked FIRST so a lead-fleet lead never falls through to a
+      // client channel (linkedin ads / popup / meetups / organic / other), per Diana
+      // 2026-07-01. The email is usually Apollo-revealed regardless, but the channel is
+      // where the person was FOUND, not how the email was fetched:
+      //   LinkedIn Lead    = our LinkedIn (followers + engagement)
+      //   Övrig lead fleet = our secondary discovery (directories/website, RSS, curated)
+      //   Apollo           = our Apollo cold search (and any remaining lead fleet)
+      if ([...tags].some(t => /lead fleet source:\s*linkedin/.test(t))) {
+        channel = "linkedinLead";
+      } else if ([...tags].some(t => /lead fleet source:\s*(rss|website|curated)/.test(t))) {
+        channel = "ovrig";
+      } else if ([...tags].some(t => /lead[\s_-]?fleet/.test(t))) {
         channel = "apollo";
       } else if ([...tags].some(t => t.includes("apollo"))) {
         // bare "apollo" tag or src-apollo-YYYY-MM imports
@@ -198,7 +236,20 @@ module.exports = async function handler(req, res) {
 
     const netGrowth = recentMembers.length - weekUnsubscribed.length;
 
-    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, channelEmails, channels: counts };
+    // GROSS lead-fleet delivered this week: every member opted-in this week carrying a lead
+    // fleet / apollo tag, any status. Matches the daily Slack write count (what NordSym is
+    // measured on), distinct from the subscribed channel counts above.
+    let leadFleetDelivered = 0;
+    for (const m of allAnyStatus) {
+      if (!m.timestamp_opt) continue;
+      const t = new Date(m.timestamp_opt).getTime();
+      if (t < weekStartTime || t >= weekEndTime) continue;
+      const tags = (m.tags || []).map(x => x.name.toLowerCase());
+      if (tags.some(x => /lead[\s_-]?fleet/.test(x) || x.includes("apollo"))) leadFleetDelivered++;
+    }
+    const deliveryTarget = WEEKLY_TARGET[listKey] || 0;
+
+    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, leadFleetDelivered, deliveryTarget, converted, convertedEmails, channelEmails, channels: counts };
   }
 
   const results = await Promise.allSettled([
@@ -208,7 +259,7 @@ module.exports = async function handler(req, res) {
     fetchListData(LISTS.ind, "ind"),
   ]);
 
-  const empty = err => ({ total: 0, channels: { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 }, error: err });
+  const empty = err => ({ total: 0, leadFleetDelivered: 0, deliveryTarget: 0, channels: { apollo: 0, linkedinLead: 0, ovrig: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 }, error: err });
   const [il, vc, el, ind] = results.map(r =>
     r.status === "fulfilled" ? r.value : empty(r.reason?.message)
   );
