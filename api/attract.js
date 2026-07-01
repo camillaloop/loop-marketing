@@ -21,42 +21,6 @@ const CONVERTED_RULES = {
   ind: (mf) => (mf.PLIROSSTAT || "").toLowerCase() === "active" && mf.PLIROSSTRT,
 };
 
-async function fetchStripeRevenue(emails, stripeKey) {
-  if (!stripeKey || emails.length === 0) return {};
-  const auth    = "Basic " + Buffer.from(`${stripeKey}:`).toString("base64");
-  const EUR_SEK = 11.0;
-
-  const results = await Promise.allSettled(emails.map(async email => {
-    const cr = await fetch(
-      `https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=1`,
-      { headers: { Authorization: auth } }
-    );
-    if (!cr.ok) return [email, 0];
-    const cd   = await cr.json();
-    const cust = cd.data?.[0];
-    if (!cust) return [email, 0];
-
-    const sr = await fetch(
-      `https://api.stripe.com/v1/subscriptions?customer=${cust.id}&status=active&limit=1`,
-      { headers: { Authorization: auth } }
-    );
-    if (!sr.ok) return [email, 0];
-    const sd  = await sr.json();
-    const sub = sd.data?.[0];
-    if (!sub) return [email, 0];
-
-    const amount    = (sub.plan?.amount || 0) / 100;
-    const currency  = (sub.plan?.currency || "sek").toLowerCase();
-    const amountSEK = currency === "eur" ? Math.round(amount * EUR_SEK) : Math.round(amount);
-    return [email, amountSEK];
-  }));
-
-  const map = {};
-  for (const r of results) {
-    if (r.status === "fulfilled" && r.value) map[r.value[0]] = r.value[1];
-  }
-  return map;
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -90,6 +54,8 @@ module.exports = async function handler(req, res) {
   const weekStartTime = weekStart.getTime();
   const weekEndTime   = weekStartTime + 7 * 24 * 60 * 60 * 1000; // exclusive
   const weekStartIso  = weekStart.toISOString().slice(0, 19) + "+00:00";
+  const weekEndIso    = new Date(weekEndTime).toISOString().slice(0, 19) + "+00:00";
+  const isCurrentWeek = weekStartTime <= Date.now() && Date.now() < weekEndTime;
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   async function getAll(url, getItems) {
@@ -111,17 +77,29 @@ module.exports = async function handler(req, res) {
   async function fetchListData(listId, listKey) {
     const isConverted = CONVERTED_RULES[listKey] || CONVERTED_RULES.il;
 
+    // Subscribed members who joined in the selected week — bounded strictly by
+    // the opt-in timestamp window. This returns only that week's opt-ins for
+    // every week (current or historical), instead of scanning every member
+    // changed since the week start, which grew unbounded over time and caused
+    // the 504 timeouts.
+    const subParams = new URLSearchParams({
+      status: "subscribed",
+      fields: "members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,members.source,total_items",
+      since_timestamp_opt:  weekStartIso,
+      before_timestamp_opt: weekEndIso,
+    });
+
+    // Unsubscribed within the week — bound both ends so old weeks stay small.
+    const unsubParams = new URLSearchParams({
+      status: "unsubscribed",
+      fields: "members.email_address,members.last_changed,members.unsubscribe_reason,total_items",
+      since_last_changed:  weekStartIso,
+      before_last_changed: weekEndIso,
+    });
+
     const [allChanged, allUnsubscribed] = await Promise.all([
-      getAll(
-        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=subscribed` +
-        `&fields=members.email_address,members.timestamp_opt,members.timestamp_signup,members.tags,members.merge_fields,members.source,total_items`,
-        d => d.members || []
-      ),
-      getAll(
-        `${base}/lists/${listId}/members?since_last_changed=${weekStartIso}&status=unsubscribed` +
-        `&fields=members.email_address,members.last_changed,members.unsubscribe_reason,total_items`,
-        d => d.members || []
-      ),
+      getAll(`${base}/lists/${listId}/members?${subParams.toString()}`,   d => d.members || []),
+      getAll(`${base}/lists/${listId}/members?${unsubParams.toString()}`, d => d.members || []),
     ]);
 
     // New in the selected week: timestamp_opt within [weekStart, weekEnd)
@@ -220,24 +198,7 @@ module.exports = async function handler(req, res) {
 
     const netGrowth = recentMembers.length - weekUnsubscribed.length;
 
-    const allConvertedEmails = [
-      ...convertedEmails.apollo,
-      ...convertedEmails.linkedin,
-      ...convertedEmails.popup,
-      ...convertedEmails.organic,
-      ...convertedEmails.meetups,
-      ...convertedEmails.other,
-    ];
-    const revenueMap = await fetchStripeRevenue(allConvertedEmails, process.env.STRIPE_SECRET_KEY);
-
-    const revenue = { apollo: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 };
-    for (const ch of ["apollo", "linkedin", "popup", "organic", "meetups", "other"]) {
-      for (const email of convertedEmails[ch]) {
-        revenue[ch] += revenueMap[email] || 0;
-      }
-    }
-
-    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, channelEmails, revenue, channels: counts };
+    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, converted, convertedEmails, channelEmails, channels: counts };
   }
 
   const results = await Promise.allSettled([
