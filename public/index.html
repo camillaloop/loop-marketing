@@ -1617,6 +1617,11 @@
             <div class="att-email-goal" style="font-size:13px;color:var(--muted)">
               New e-mail addresses: <span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span>
             </div>
+            <div class="att-email-goal" style="font-size:13px;color:var(--muted)">
+              Churn:
+              <span id="att-${loop.id}-unsub">–</span> unsubscribed
+              · <span id="att-${loop.id}-sunset">–</span> sunset inactive
+            </div>
             <div class="att-email-goal" style="font-size:13px;color:var(--muted);margin-top:6px">
               Lead fleet delivered: <span id="att-${loop.id}-delivered">–</span> / <span id="att-${loop.id}-delivered-target">${escHtml(d.emailGoal)}</span>
               <span class="att-email-sub">this week</span>
@@ -1705,6 +1710,11 @@
       set(`att-${loopId}-popup`,        d.channels.popup);
       set(`att-${loopId}-meetups`,      d.channels.meetups);
       set(`att-${loopId}-other`,        d.channels.other);
+
+      // Churn breakdown: unsubscribed (already subtracted from Net) + sunset inactive
+      // (sunset-archived contacts; a separate cleanup figure, not subtracted from Net).
+      set(`att-${loopId}-unsub`,  d.unsubscribed);
+      if (d.sunsetInactive != null) set(`att-${loopId}-sunset`, d.sunsetInactive);
 
       // Lead fleet delivered (our sub-channels, gross) vs weekly target, with progress bar.
       if (d.leadFleetDelivered != null) {

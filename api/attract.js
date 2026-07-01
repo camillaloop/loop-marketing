@@ -245,7 +245,24 @@ module.exports = async function handler(req, res) {
     const leadFleetDelivered = subscribedLeadFleet + churnedLeadFleet;
     const deliveryTarget = WEEKLY_TARGET[listKey] || 0;
 
-    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, leadFleetDelivered, deliveryTarget, converted, convertedEmails, channelEmails, channels: counts };
+    // Sunset inactive: contacts ARCHIVED this week carrying the "sunset-archived" tag
+    // (the sunsetting cleanup flow). "archived" is a separate Mailchimp status from
+    // "unsubscribed", so this never overlaps the unsubscribed churn count. Shown as its
+    // own figure — NOT subtracted from Net (Diana 2026-07-01). Run AFTER the two scans
+    // above (not concurrently) so we don't reintroduce the rate-limit a third parallel
+    // scan caused (PR #2); bounded by the week window so it stays small.
+    const archParams = new URLSearchParams({
+      status: "archived",
+      fields: "members.tags,total_items",
+      since_last_changed:  weekStartIso,
+      before_last_changed: weekEndIso,
+    });
+    const allArchived = await getAll(`${base}/lists/${listId}/members?${archParams.toString()}`, d => d.members || []);
+    const sunsetInactive = allArchived.filter(m =>
+      (m.tags || []).some(t => t.name.toLowerCase().includes("sunset-archived"))
+    ).length;
+
+    return { total: recentMembers.length, unsubscribed: weekUnsubscribed.length, netGrowth, sunsetInactive, leadFleetDelivered, deliveryTarget, converted, convertedEmails, channelEmails, channels: counts };
   }
 
   const results = await Promise.allSettled([
@@ -255,7 +272,7 @@ module.exports = async function handler(req, res) {
     fetchListData(LISTS.ind, "ind"),
   ]);
 
-  const empty = err => ({ total: 0, leadFleetDelivered: 0, deliveryTarget: 0, channels: { apollo: 0, linkedinLead: 0, ovrig: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 }, error: err });
+  const empty = err => ({ total: 0, unsubscribed: 0, sunsetInactive: 0, leadFleetDelivered: 0, deliveryTarget: 0, channels: { apollo: 0, linkedinLead: 0, ovrig: 0, linkedin: 0, popup: 0, organic: 0, meetups: 0, other: 0 }, error: err });
   const [il, vc, el, ind] = results.map(r =>
     r.status === "fulfilled" ? r.value : empty(r.reason?.message)
   );
