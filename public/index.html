@@ -1540,47 +1540,34 @@
   }
 
   // ── Attract page ─────────────────────────────────────────────────────────────
+  // Our lead-fleet sub-sources first (Apollo / LinkedIn Lead / Övrig lead fleet), then the
+  // client's own channels (LinkedIn ads / Popup / Meetups / Organic / Other).
+  const LEAD_FLEET_CHANNELS = [
+    { name: "Apollo",           number: "–" },
+    { name: "LinkedIn Lead",    number: "–" },
+    { name: "Övrig lead fleet", number: "–" },
+  ];
+  const clientChannels = (linkedinCost) => ([
+    { name: "LinkedIn ads", number: "–", cost: linkedinCost || "–" },
+    { name: "Popup",        number: "–" },
+    { name: "Meetups",      number: "–" },
+    { name: "Organic",      number: "–" },
+    { name: "Other",        number: "–" },
+  ]);
   const ATTRACT_DATA = {
-    il:  { emailGoal: "200", emailActual: "–", apolloDelivered: "–",
-           channels: [
-             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "LinkedIn ads",  number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
-           ]},
-    vc:  { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
-           channels: [
-             { name: "Apollo",        number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "LinkedIn ads",  number: "–", cost: "2 500 kr",  converted: "–", cac: "–" },
-             { name: "Organic",       number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "Meetups",       number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–",         converted: "–", cac: "–" },
-             { name: "Other",         number: "–", cost: "–",         converted: "–", cac: "–" },
-           ]},
-    el:  { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
-           channels: [
-             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "LinkedIn ads",  number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
-           ]},
-    ind: { emailGoal: "500", emailActual: "–", apolloDelivered: "–",
-           channels: [
-             { name: "Apollo",        number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "LinkedIn ads",  number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Organic",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Meetups",       number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Popup",         number: "–", cost: "–", converted: "–", cac: "–" },
-             { name: "Other",         number: "–", cost: "–", converted: "–", cac: "–" },
-           ]},
+    il:  { emailGoal: "200", emailActual: "–", channels: [...LEAD_FLEET_CHANNELS, ...clientChannels()] },
+    vc:  { emailGoal: "500", emailActual: "–", channels: [...LEAD_FLEET_CHANNELS, ...clientChannels("2 500 kr")] },
+    el:  { emailGoal: "500", emailActual: "–", channels: [...LEAD_FLEET_CHANNELS, ...clientChannels()] },
+    ind: { emailGoal: "500", emailActual: "–", channels: [...LEAD_FLEET_CHANNELS, ...clientChannels()] },
   };
 
-  // Channel name → DOM ID suffix used for live cells
-  const ATTRACT_CH_IDS = { Apollo: "apollo", "LinkedIn ads": "linkedin", Popup: "popup", Organic: "organic", Meetups: "meetups", Other: "other" };
+  // Channel name → DOM ID suffix / /api/attract `channels` key used for live cells.
+  const ATTRACT_CH_IDS = {
+    "Apollo": "apollo", "LinkedIn Lead": "linkedinLead", "Övrig lead fleet": "ovrig",
+    "LinkedIn ads": "linkedin", "Popup": "popup", "Organic": "organic", "Meetups": "meetups", "Other": "other",
+  };
+  // Live channel keys for placeholder/loading loops.
+  const ATTRACT_CH_KEYS = ["apollo", "linkedinLead", "ovrig", "linkedin", "popup", "organic", "meetups", "other"];
 
   // Weekly channel costs (SEK) per loop — used to calculate CAC
   const CHANNEL_COSTS = {
@@ -1630,6 +1617,13 @@
             <div class="att-email-goal" style="font-size:13px;color:var(--muted)">
               New e-mail addresses: <span id="att-${loop.id}-total">${escHtml(d.emailActual)}</span>
             </div>
+            <div class="att-email-goal" style="font-size:13px;color:var(--muted);margin-top:6px">
+              Lead fleet delivered: <span id="att-${loop.id}-delivered">–</span> / <span id="att-${loop.id}-delivered-target">${escHtml(d.emailGoal)}</span>
+              <span class="att-email-sub">this week</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin:6px 0 10px">
+              <div id="att-${loop.id}-delivered-bar" style="height:100%;width:0%;background:${loop.color};transition:width .4s"></div>
+            </div>
             <table class="att-ch-table">
               <thead>
                 <tr>
@@ -1670,7 +1664,7 @@
     if (attractCaches[week]) { renderAttractData(attractCaches[week]); return; }
 
     LOOPS.forEach(loop => {
-      ["apollo", "linkedin", "popup", "organic", "meetups", "other"].forEach(ch => {
+      ATTRACT_CH_KEYS.forEach(ch => {
         const cel = document.getElementById(`att-${loop.id}-${ch}`);
         if (cel) cel.textContent = "…";
       });
@@ -1687,7 +1681,7 @@
       renderAttractData(attractCaches[week]);
     } catch (e) {
       LOOPS.forEach(loop => {
-        ["apollo", "linkedin", "popup", "organic", "meetups", "other"].forEach(ch => {
+        ATTRACT_CH_KEYS.forEach(ch => {
           const cel = document.getElementById(`att-${loop.id}-${ch}`);
           if (cel) cel.textContent = "err";
         });
@@ -1703,12 +1697,23 @@
       if (cel) cel.textContent = String(val);
     };
     for (const [loopId, d] of Object.entries(data.loops)) {
-      set(`att-${loopId}-total`,    d.total);
-      set(`att-${loopId}-apollo`,   d.channels.apollo);
-      set(`att-${loopId}-linkedin`, d.channels.linkedin);
-      set(`att-${loopId}-popup`,    d.channels.popup);
-      set(`att-${loopId}-meetups`,  d.channels.meetups);
-      set(`att-${loopId}-other`,    d.channels.other);
+      set(`att-${loopId}-total`,        d.total);
+      set(`att-${loopId}-apollo`,       d.channels.apollo);
+      set(`att-${loopId}-linkedinLead`, d.channels.linkedinLead);
+      set(`att-${loopId}-ovrig`,        d.channels.ovrig);
+      set(`att-${loopId}-linkedin`,     d.channels.linkedin);
+      set(`att-${loopId}-popup`,        d.channels.popup);
+      set(`att-${loopId}-meetups`,      d.channels.meetups);
+      set(`att-${loopId}-other`,        d.channels.other);
+
+      // Lead fleet delivered (our sub-channels, gross) vs weekly target, with progress bar.
+      if (d.leadFleetDelivered != null) {
+        const tgt = d.deliveryTarget || 0;
+        set(`att-${loopId}-delivered`, d.leadFleetDelivered);
+        if (tgt) set(`att-${loopId}-delivered-target`, tgt);
+        const bar = document.getElementById(`att-${loopId}-delivered-bar`);
+        if (bar) bar.style.width = (tgt ? Math.min(100, Math.round(d.leadFleetDelivered / tgt * 100)) : 0) + "%";
+      }
 
       // Organic: show count with hover tooltip if emails available
       const organicEl     = document.getElementById(`att-${loopId}-organic`);
@@ -1817,22 +1822,20 @@
   }
 
   // ── Agents page ───────────────────────────────────────────────────────────────
-  const AGENTS_DATA = [
-    { name: "Apollo agent",                      number: "–" },
-    { name: "E-mail campaign agent",             number: "–" },
-    { name: "Personal e-mail with offer agent",  number: "–" },
-    { name: "Active reader offer agent",         number: "–" },
+  // Live from /api/agents. The lead agent runs all loops in one daily run, so its number
+  // is distinct run-days (a write-day = one run). LinkedIn autopublish is live from Sanity
+  // (published posts across all loop tenants). Agents not built yet show a dash.
+  const AGENT_ROWS = [
+    { label: "Lead agent",                       live: true,  key: "runs" },
+    { label: "LinkedIn autopublish",             live: true,  key: "linkedin" },
+    { label: "E-mail campaign agent",            live: false },
+    { label: "Personal e-mail with offer agent", live: false },
+    { label: "Active reader offer agent",        live: false },
   ];
 
-  function renderAgentsPage() {
+  async function renderAgentsPage() {
     const el = document.getElementById("main-content");
     if (!el) return;
-
-    const rows = AGENTS_DATA.map(a => `
-      <tr class="agents-row">
-        <td class="agents-name">${escHtml(a.name)}</td>
-        <td class="agents-num">${escHtml(a.number)}</td>
-      </tr>`).join("");
 
     el.innerHTML = `
       <div style="padding:24px 0 8px">
@@ -1846,10 +1849,28 @@
                 <th class="agents-head agents-num">Number</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody id="agents-tbody">
+              <tr><td class="agents-name" style="color:var(--muted)">…</td><td class="agents-num"></td></tr>
+            </tbody>
           </table>
         </div>
       </div>`;
+
+    let combined = {};
+    try {
+      const r = await fetch("/api/agents?_=" + Date.now(), { cache: "no-store" });
+      combined = (await r.json()).combined || {};
+    } catch (e) { /* leave dashes */ }
+
+    const rows = AGENT_ROWS.map(a => {
+      const num = a.live ? (combined[a.key] != null ? combined[a.key] : 0) : "–";
+      return `<tr class="agents-row">
+        <td class="agents-name">${escHtml(a.label)}</td>
+        <td class="agents-num">${escHtml(num)}</td>
+      </tr>`;
+    }).join("");
+    const tb = document.getElementById("agents-tbody");
+    if (tb) tb.innerHTML = rows;
   }
 
   // Returns ISO week number label, e.g. "v. 22"
